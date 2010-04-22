@@ -12,6 +12,7 @@
 
       var sine;
       var lp12;
+      var windowFunc;
 
       // Setup experimental audio out
       var output = new Audio();
@@ -21,39 +22,47 @@
       }
 
       var audioWriter = function(s) {     
-        output.mozWriteAudio(s.length, s);
+        if ( typeof output.mozWriteAudio === 'function' ) {
+          output.mozWriteAudio(s.length, s);
+        }
       }
-
     </script>
     
     <script target="#signal" type="application/processing">
       int nthHarmonic = 1;
       float frequency = 200;
-      float scale = 30.0;
 
       void setup() {
-        size(512, 100);
+        size(1024, 600);
         frameRate(60);
         
         sine = new Oscillator(Oscillator.Sine, frequency, 1, bufferSize, sampleRate);
         lp12 = new LP12(400, 1, sampleRate);
+        windowFunc = new WindowFunction(WindowFunction.Hann);
+
+        stroke(255);
+        strokeWeight(2);
+        strokeCap(SQUARE);
+        colorMode(HSB, 360, 100, 100);
       }
 
       void draw() {
-        background(0);
+        fill(360, 0, 100, 50);
+        rect(-10, -10, width + 20, height + 20);
 
 
         if (nthHarmonic > 40 ) 
         {
-          sizes = [2048, 1024, 512, 256, 128];
-          frequency = constrain(random(200), 20, 200);
+          sizes = [2048, 1024, 512, 256, 128, 512, 256, 128];
+          frequency = constrain(random(200), 10, 200);
           bufferSize = sizes[int(random(sizes.length-1))];
           nthHarmonic = 1;
-          lp12 = new LP12(random(400), random(0.5) + 1, sampleRate);
           sine = new Oscillator(Oscillator.Saw, frequency, 1, bufferSize, sampleRate);
         }
+          lp12 = new LP12(random(22050), random(5) + 1, sampleRate);
 
-        frequency = constrain((mouseX/10) * (mouseX/50), 10, 1000);
+        frequency = constrain((mouseX/50) * (mouseX/50), 10, 1000);
+
         
         // Add harmonic
         if ( nthHarmonic > 1 ) {
@@ -65,21 +74,26 @@
 
         
         // Draw additive signal
-        stroke(255);
-        strokeWeight(1.5);
         
-        for ( int i = 0; i < bufferSize - 1; i++ ) {
-          line(i, scale + 10 - sine.signal[i] * scale, i+1, scale + 10 - sine.signal[i+1] * scale);
+        for ( int i = 0; i < width - 1; i+=4 ) {
+          stroke((i + frameCount + 50) % 360, 100, 60);
+          line(i, height/2 - sine.signal[i % bufferSize] * 100, i+1, height/2 - sine.signal[(i+1) % bufferSize] * 300);
+          stroke((i + frameCount)% 360, 50, 100);
+          line(i, height/2 - sine.signal[i % bufferSize] * 200, i+1, height/2 - sine.signal[(i+1) % bufferSize] * 50);
         }
+
+        noStroke();
+        fill(mouseX % 360, 100, 100);
+        rect(mouseX - 25, 0, 50, 10);
+        rect(mouseX - 25, height-10, 50, 10);
 
         // Play the generated waveform
         lp12.process(sine.signal);
+        //windowFunc.process(sine.signal);
         audioWriter(sine.signal);
       }
     </script>
   
-    <h1>No Wave is Angry</h1>
-    <p>Just super messed up</p>
     <div><canvas id="signal" width="200px" height="200px"></canvas></div>
   </body>
 </html>

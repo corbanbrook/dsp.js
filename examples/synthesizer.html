@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- Load JQuery and JQuery-UI -->
+    <link type="text/css" href="css/smoothness/jquery-ui-1.7.2.custom.css" rel="stylesheet" />  
+    <script type="text/javascript" src="js/jquery-1.3.2.min.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.7.2.custom.min.js"></script>
+    
+    <!-- Load Processing.js -->
+    <script language="javascript" src="js/processing.js"></script>
+    <script language="javascript" src="js/init.js"></script>
+
+    <!-- Load DSP.js -->
+    <script src="../dsp.js"></script>
+    <script>
+      $(function() {
+        $('#amp').slider({ orientation: 'vertical', range: 'min', min: 0, max: 1, step: 0.01, value: 0.7, slide: changeAmplitude });
+        $('#A').slider({ orientation: 'vertical', range: 'min', value: 0.02, min: 0.01, max: 1.0, step: 0.01 });
+        $('#D').slider({ orientation: 'vertical', range: 'min', value: 0.6, min: 0, max: 1.0, step: 0.01 });
+        $('#S').slider({ orientation: 'vertical', range: 'min', value: 0.3, min: 0, max: 1.0, step: 0.01 });
+        $('#R').slider({ orientation: 'vertical', range: 'min', value: 0.8, min: 0, max: 5.0, step: 0.01 });
+        $('#cutoff').slider({ orientation: 'vertical', range: 'min', min: 60, max: 5000, step: 1, value: 880 });
+        $('#res').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 20.0, value: 1.0, step: 0.01 });
+      });
+    </script>
+
+    <style type="text/css">
+      body, * {
+        font-family: Arial, sans-serif;
+      }
+      .control {
+        padding: 5px;
+        border: 1px outset #CCC;
+        background-color: #EEE;
+        float: left;
+        margin-right: 5px;
+      }
+      .control table td {
+        padding: 10px;
+        width: 20px;
+        color: #999;
+        font-size: 12px;
+      }
+      .control h3 {
+        margin: 0;
+        padding:0;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .control #debug {
+        border: 1px inset #ccc;
+        background-color: #FFF;
+        font-size: 12px;
+        width: 300px;
+        padding: 10px;
+      }
+      .slider {
+        /*float: left;*/
+        /*margin: 10px;*/
+        margin-bottom: 16px;
+        width: 8px;
+      }
+      
+      .ui-slider .ui-slider-handle {
+        width: 8px;
+        margin-left: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <!--<audio id="audio1"></audio>-->
+    <script>
+      var SHOW_SEQUENCER = true;
+    
+      // Setup shared variables
+      //var sampleRate = 22050;
+      var sampleRate = 11025;
+      var bufferSize = 1024;
+      var bufferTime = 1000 / (sampleRate / bufferSize);
+      
+      var fft;
+      var osc;
+      var lp12;
+      
+      var frequency = 440;
+      
+      var amplitude = 0.7; // Default amplitude at 70%
+      
+      var changeAmplitude = function() {
+        amplitude = $('#amp').slider('option', 'value'); 
+        $('#ampLevel').html(Math.round(amplitude * 100) + "%");
+      }
+      
+      var bpm = 60; // Beats per minute
+      
+      var sequencerStep = 0; // Sequencer step postion
+      
+      var sequencerTicksPerMillisecond = bpm * 8 / 60000; // Sequencer Ticks each millisecond. A Tick is a partial step.
+      
+      var polyphony = 8; // Number of oscillators that can be played at the same time
+      var oscPool = new Array(); // Pool of active oscillators
+      var oscTable = new Array(24); // Table of oscillators for each note.. so generation is quicker
+
+      var sequencer = new Array(32);
+      for ( var i = 0; i < sequencer.length; i++ ) {
+        sequencer[i] = new Array(24);
+        for( var j = 0; j < sequencer[i].length; j++ ) {
+          sequencer[i][j] = false;
+        }
+      }
+
+      var sequencerNoteOn = new Array(32);
+      for ( var i = 0; i < sequencerNoteOn.length; i++ ) {
+        sequencerNoteOn[i] = new Array(24);
+        for( var j = 0; j < sequencerNoteOn[i].length; j++) {
+          sequencerNoteOn[i][j] = false;
+        }
+      }
+
+      var oct = 3; // Root Octave
+
+      // Borrowed from F1LTER's code
+      var midiNoteFreq =  /* 0 */ [ 16.35,    17.32,    18.35,    19.45,    20.6,     21.83,    23.12,    24.5,     25.96,    27.5,  29.14,    30.87,
+                          /* 1 */   32.7,     34.65,    36.71,    38.89,    41.2,     43.65,    46.25,    49,       51.91,    55,    58.27,    61.74,
+                          /* 2 */   65.41,    69.3,     73.42,    77.78,    82.41,    87.31,    92.5,     98,       103.83,   110,   116.54,   123.47,
+                          /* 3 */   130.81,   138.59,   146.83,   155.56,   164.81,   174.61,   185,      196,      207.65,   220,   233.08,   246.94,
+                          /* 4 */   261.63,   277.18,   293.66,   311.13,   329.63,   349.23,   369.99,   392,      415.3,    440,   466.16,   493.88,
+                          /* 5 */   523.25,   554.37,   587.33,   622.25,   659.26,   698.46,   739.99,   783.99,   830.61,   880,   932.33,   987.77,
+                          /* 6 */   1046.5,   1108.73,  1174.66,  1244.51,  1318.51,  1396.91,  1479.98,  1567.98,  1661.22,  1760,  1864.66,  1975.53,
+                          /* 7 */   2093,     2217.46,  2349.32,  2489.02,  2637.02,  2793.83,  2959.96,  3135.96,  3322.44,  3520,  3729.31,  3951.07,
+                          /* 8 */   4186.01,  4434.92,  4698.64,  4978 ];
+
+
+
+      var writeCount = 0;
+
+      var timeStamp = (new Date()).getTime();  
+      
+      
+      // Setup experimental audio out
+      //var a = document.getElementById('audio1');
+      var a = new Audio();
+      
+      if ( typeof a.mozSetup == 'function' ) {
+        a.mozSetup(1, sampleRate, 1);
+      }
+      
+      
+      var timePerWrite = 0;
+      
+      var audioWriter = function() {
+        var startTime = (new Date()).getTime();        
+        var currentTime = (new Date()).getTime();
+        var mergedOsc; // undefined
+        
+        for ( var i = 0; i < oscPool.length; i++ ) {
+          // Generate new frame of the signal
+          if ( oscPool[i].envelope.isActive() ) {
+            oscPool[i].generate(); // This generates a new frameBuffer of signal and applies the envelope as it goes.
+            oscPool[i].envelope.process(oscPool[i].signal);
+            
+            if ( typeof mergedOsc == 'undefined' ) {
+              mergedOsc = oscPool[i];
+            } else {
+              mergedOsc.addSignal(oscPool[i].signal);
+            }
+          } else {
+            oscPool[i] = null; // Mark for deletion
+          }
+        }
+        
+        // Delete marked oscillators from the pool
+        var tmpPool = new Array();
+        for ( var i = 0; i < oscPool.length; i++ ) {
+          if ( oscPool[i] != null ) {
+            tmpPool.push(oscPool[i]);
+          }
+        }
+        oscPool = tmpPool;
+        
+        // Set the global osc object
+        if ( typeof mergedOsc != 'undefined' ) {
+          osc = mergedOsc;
+    
+          lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
+          lp12.process(osc.signal);
+        }
+          
+        if ( typeof a.mozWriteAudio == 'function' ) {
+          a.mozWriteAudio(osc.signal.length, osc.signal);
+        }
+  
+        writeCount++;
+        
+        sequencerStep += (currentTime - timeStamp) * sequencerTicksPerMillisecond;
+          
+        timeStamp = (new Date()).getTime();
+        var endTime = (new Date()).getTime();
+        
+        timePerWrite = endTime - startTime;
+      }
+    </script>
+      
+    <script target="#signal" type="application/processing">
+      float scale = 90.0;
+      int waveform = 2;
+      int filter = 1;
+      
+      void setup() {
+        size(512, 200);
+        
+        fft = new FFT(bufferSize, sampleRate);
+        
+        osc = new Oscillator(Oscillator.Sine, 440, 0, bufferSize, sampleRate);
+        osc.generate();
+        
+        // Gerenate oscillator lookup table 
+        /*for ( int i = 0; i < oscTable.length; i++ ) {
+          oscTable[i] = new Oscillator(waveform, midiNoteFreq[12*oct+(24-i)], amplitude, bufferSize, sampleRate);
+          oscTable[i].generate();
+        }*/
+        
+        lp12 = new LP12(bufferSize/2, 1.0, sampleRate);
+        
+        setInterval(audioWriter, bufferTime); // launch audioWriter timer
+      }
+
+      void draw() {
+        var startTime = (new Date()).getTime();
+        
+        int sequencerCol = Math.floor(sequencerStep) % 32;
+        /*
+        for (int r = 0; r < 24; r++ ) {
+          if ( sequencer[sequencerCol][r] == true ) {
+            background(255, 255, 255, 10);
+          }
+        }*/
+        background(0, 0, 30, 50);
+
+        // Check sequencer column for notes to trigger
+        for ( int i = 0; i < 24; i ++ ) {  
+          if ( sequencer[sequencerCol][i] == true && !sequencerNoteOn[sequencerCol][i] ) {
+            sequencerNoteOn[sequencerCol][i] = true;
+            
+            frequency = midiNoteFreq[12*oct+(24-i)];
+            
+            // Add oscillator to the pool
+            if ( oscPool.length < polyphony ) {
+              var index = oscPool.length;
+              
+              
+              oscPool[index] = new Oscillator(Oscillator.Square, frequency, amplitude, bufferSize, sampleRate);
+              oscPool[index].addEnvelope(new ADSR($('#A').slider('option', 'value'), $('#D').slider('option', 'value'), $('#S').slider('option', 'value'), bufferTime / 1000, $('#R').slider('option', 'value'), sampleRate));
+              oscPool[index].envelope.trigger();
+              
+              /*
+              oscPool[index] = oscTable[i];
+              oscPool[index].addEnvelope(new ADSR($('#A').slider('option', 'value'), $('#D').slider('option', 'value'), $('#S').slider('option', 'value'), bufferTime / 1000, $('#R').slider('option', 'value'), sampleRate));
+              oscPool[index].envelope.trigger();
+              */
+            } else {
+              
+              
+              oscPool[0] = new Oscillator(Oscillator.Square, frequency, amplitude, bufferSize, sampleRate);
+              oscPool[0].addEnvelope(new ADSR($('#A').slider('option', 'value'), $('#D').slider('option', 'value'), $('#S').slider('option', 'value'), bufferTime / 1000, $('#R').slider('option', 'value'), sampleRate));
+              oscPool[0].envelope.trigger();
+              
+              /*
+              oscPool[0] = oscTable[i];
+              oscPool[0].addEnvelope(new ADSR($('#A').slider('option', 'value'), $('#D').slider('option', 'value'), $('#S').slider('option', 'value'), bufferTime / 1000, $('#R').slider('option', 'value'), sampleRate));
+              oscPool[0].envelope.trigger();
+              */
+            }
+          }
+          
+          if ( sequencer[sequencerCol][i] == false && sequencerCol > 0 ) {
+            sequencerNoteOn[sequencerCol-1][i] = false;
+          } else if ( sequencer[sequencerCol][i] == false && sequencerCol == 0 ) {
+            sequencerNoteOn[sequencerNoteOn.length -1][i] = false;
+          }
+        }
+
+        // Calculate forward transform
+        //fft.forward(osc.signal);
+
+        if ( SHOW_SEQUENCER ) {
+          /*
+           *  Sequencer View
+           *
+           *  Show step sequencer
+           *
+           */
+          stroke(200, 255, 255, 20); 
+          // Render horozontal lines
+          for (int i = 0; i < 24; i++ ) {
+            line(0, i * (height/24), width, i * (height/24));
+          }
+          
+          // Render vertical lines
+          for (int i = 0; i < 32; i++ ) {
+            if ( i % 8 == 0 ) {
+              strokeWeight(2);
+              stroke(200, 255, 255);
+            } else {
+              stroke(200, 255, 255, 20);
+              strokeWeight(1);
+            }
+            line(i * (width/32), 0, i * (width/32), height);
+            
+            // Render sequencer step position
+            if ( i == Math.floor(sequencerStep % 32) ) {
+              noStroke();
+              fill(200, 255, 255, 60);
+              rect(i * (width/32), 0, width/32, height);
+            }
+          }
+
+          noStroke();
+          for (int c = 0; c < sequencer.length; c++ ) {
+            for (int r = 0; r < sequencer[c].length; r++ ) {
+              if ( sequencer[c][r] == true ) {
+                fill(200, 255, 255);
+                
+                if ( c == Math.floor(sequencerStep % 32) ) {
+                  fill(100 * r, 255 - (r * 10), r * 5, 200);
+                  rect( (c - 1) * (width/32), (r -1) * (height/24), width/32 * 3, height/24 * 3);
+                  fill(255);
+                }
+                rect(c * (width/32), r * (height/24), width/32, height/24);
+              }
+            }
+          }
+        } else {
+          /*
+           *  Signal View
+           *
+           *  Show signal output
+           *
+           */
+          strokeWeight(1.5);
+          stroke(155, 200, 220);
+          for ( int i = 0; i < width/4 - 1; i++ ) {   
+            line(4*i, scale + 10 - osc.signal[4*i] * scale, 4*(i+1), scale + 10 - osc.signal[4*(i+1)] * scale);
+          }
+        }
+
+        var endTime = (new Date()).getTime();
+        
+        $('#debug').html(    
+          "Time/frame (milliseconds): " + ( endTime - startTime ) + "<br>" +
+          "Time/write (milliseconds): " + ( timePerWrite ) + "<br>" +
+          "Audio frame size: " + bufferSize + "<br>" +
+          "Audio frames written: " + writeCount + "<br>" +
+          "Time (seconds): " + ((writeCount * bufferSize) / sampleRate) + "<br>" +
+          "Sequencer BPM: " + bpm + "<br>" +
+          "Sequencer steps/second: " + sequencerTicksPerMillisecond * 1000 + "<br>" +
+          'Active oscillators (polyphony): ' + oscPool.length
+        );
+      }
+
+      void mouseReleased() {
+        if ( SHOW_SEQUENCER ) {
+          // Plot notes in sequencer
+          var col = parseInt(mouseX / (width/32));
+          var row = parseInt(mouseY / (height/24));
+          sequencer[col][row] = !sequencer[col][row];
+        }
+      }
+
+      void keyPressed() {
+        if ( key == 'w' ) {
+          waveform += 1;
+
+          switch(waveform) {
+            case DSP.SINEWAVE:
+            case DSP.SQUAREWAVE:
+            case DSP.SAWWAVE:
+            case DSP.TRIANGLEWAVE:
+              break;
+            default:
+              waveform = DSP.SINEWAVE;
+              break;
+          }
+          
+          // Gerenate oscillator lookup table 
+          /*for ( int i = 0; i < oscTable.length; i++ ) {
+            oscTable[i] = new Oscillator(waveform, midiNoteFreq[12*oct+(24-i)], amplitude, bufferSize, sampleRate);
+          }*/
+        }
+/*
+        if ( key == 'f' ) {
+          filter += 1;
+
+          switch(filter) {
+            case DSP.LOWPASS:
+            case DSP.HIGHPASS:
+              break;
+            default:
+              filter = DSP.LOWPASS;
+              break;
+          }
+          iir = new IIRFilter(filter, cutoff, sampleRate);
+        }
+*/
+        if ( key == 's' ) {
+          SHOW_SEQUENCER = !SHOW_SEQUENCER;
+        }
+      }
+    </script>
+    
+    <h1>Sequencer</h1>
+    <p>Sequencer controlled oscillator with envelope and filter.</p>
+
+    <p><b>Click in the sequencer grid to plot notes. Switch to the signal view and adjust the envelope and filter to see the resulting waveforms.</b></p>
+    <p>Keyboard Commands:</p>
+    
+    <ul>
+      <li><b>S</b> - toggle between sequencer/signal view</li>
+      <li><b>W</b> - change waveform</li>
+    </ul>
+    
+
+    <div><canvas id="signal" width="200px" height="200px"></canvas></div>
+    
+    <div class="control">
+      <h3>Amp.</h3>
+      <table>
+        <tr>
+          <td><div id="amp" class="slider"></div><div id="ampLevel">70%</div></td>
+        </tr>
+      </table>
+    </div>
+    <div class="control">
+      <h3>Amp. Envelope</h3>
+      <table>
+        <tr>
+          <td><div id="A" class="slider"></div>A</td>
+          <td><div id="D" class="slider"></div>D</td>
+          <td><div id="S" class="slider"></div>S</td>
+          <td><div id="R" class="slider"></div>R</td>
+        </tr>
+      </table>
+    </div>
+    <div class="control">
+      <h3>Low Pass Filter</h3>
+      <table>
+        <tr>
+          <td><div id="cutoff" class="slider"></div>F</td>
+          <td><div id="res" class="slider"></div>Q</td>
+        </tr>
+      </table>
+    </div>
+    <div class="control">
+      <h3>Debug</h3>
+    <div id="debug"></div>
+    </div>
+  </body>
+</html>

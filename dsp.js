@@ -360,3 +360,19 @@ LP12.prototype.process = function(buffer) {
     buffer[i] = this.vibraPos;
   }
 };
+
+WindowFunction = function(windowFunc) {
+  this.windowFunc = windowFunc;
+};
+
+WindowFunction.prototype.process = function(buffer) {
+  var length = buffer.length;
+  for ( var i = 0; i < length; i++ ) {
+    buffer[i] *= this.windowFunc(i, length);
+  }
+};
+
+WindowFunction.Hann = function(index, length) {
+  return 0.5 * (1 - Math.cos(DSP.TWO_PI * index / (length - 1)));
+};
+
