@@ -1,0 +1,103 @@
+<html>
+  <head>      
+    <script language="javascript" src="js/processing.js"></script>
+    <script language="javascript" src="js/init.js"></script>
+    <script language="javascript" src="../dsp.js"></script>
+  </head>
+  <body>
+    <script>
+      // Setup shared variables
+      var bufferSize = 2048;
+      var sampleRate = 44100.0;
+
+      var fft;
+      var sine;
+
+      // Setup experimental audio out
+      var output = new Audio();
+
+      if ( typeof output.mozSetup === 'function' ) {
+        output.mozSetup(1, sampleRate, 1);
+      }
+
+      var audioWriter = function(s) {     
+        output.mozWriteAudio(s.length, s);
+      }
+
+    </script>
+    
+    <script target="#signal" type="application/processing">
+      int nthHarmonic = 1;
+      float frequency = 344.53;
+      float scale = 30.0;
+
+      void setup() {
+        size(512, 100);
+        frameRate(60);
+        
+        fft = new FFT(bufferSize, sampleRate);
+        sine = new Oscillator(Oscillator.Sine, frequency, 1, bufferSize, sampleRate);
+      }
+
+      void draw() {
+        background(0);
+
+        if (nthHarmonic > 40 ) 
+        {
+          nthHarmonic = 1;
+          sine.generate();
+        }
+        
+        // Add harmonic
+        if ( nthHarmonic > 1 ) {
+          harmonic = new Oscillator(Oscillator.Sine, frequency*nthHarmonic, 1/nthHarmonic, bufferSize, sampleRate); 
+          sine.add(harmonic); 
+        }
+        
+        nthHarmonic += 2; // 3rd, 5th, 7th, 9th, etc
+
+        // Calculate forward transform
+        fft.forward(sine.signal);
+        
+        // Draw additive signal
+        stroke(255);
+        strokeWeight(1.5);
+        
+        for ( int i = 0; i < bufferSize - 1; i++ ) {
+          line(i, scale + 10 - sine.signal[i] * scale, i+1, scale + 10 - sine.signal[i+1] * scale);
+        }
+
+        // Play the generated waveform
+        audioWriter(sine.signal);
+      }
+    </script>
+  
+    <script target="#fft" type="application/processing">
+      void setup() {
+        size(512, 300);
+      }
+      
+      void draw() {
+        background(0);
+        
+        // Draw spectrum
+        stroke(255);
+        strokeWeight(1.5);
+        
+        for ( int i = 0; i < fft.spectrum.length - 1; i+=4 ) {
+          line(2*i/4, height - 10 - fft.spectrum[i] * 512, 2*i/4+1, height - 10 - fft.spectrum[i+1] * 512);
+        }
+      } 
+    </script>
+    
+    <h1>Building a Square wave</h1>
+    <p>Any complex waveform can be made up of simple sinusoids.</p>
+    <p>A square wave is made by first starting with a sine wave then adding every other nth harmonic at frequency nth * the base frequency and amplitude of 1/n</p>
+    <p>FFT breaks down a waveform into its sinusoidal components to measure the amplitude of the frequencies.</p> 
+    
+    <b>1.</b> Additive sine waves combine to form a complex square wave.
+    <div><canvas id="signal" width="200px" height="200px"></canvas></div>
+    <b>2.</b> The FFT graphs the harmonics frequencies as the square wave takes form.
+    <div><canvas id="fft" width="200px" height="200px"></canvas></div>
+  </body>
+</html>

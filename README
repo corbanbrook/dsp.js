@@ -1,0 +1,65 @@
+                                  
+                                  PJSAudio
+
+PJSAudio is a comprehensive audio library for javascript/processing.js. PJSAudio
+includes many functions for signal analysis and generation. 
+
+Modules:
+
+  DFT(bufferSize, sampleRate): Discrete Fourier Transform
+
+    Usage: 
+
+    var dft = new DFT(1024, 44100);
+    dft.forward(signal);
+    var spectrum = dft.spectrum;
+
+
+  FFT(bufferSize, sampleRate): Fast Fourier Transform
+
+    Usage:
+
+    var fft = new FFT(2048, 44100);
+    fft.forward(signal);
+    var spectrum = fft.spectrum;
+
+
+  Oscillator(waveform, frequency, amplitude, bufferSize, sampleRate): Signal Generator
+    * Sine wave
+    * Square wave
+    * Saw wave
+    * Triangle wave
+
+    Usage:
+
+    var osc = new Oscillator(SINEWAVE, 440, 1, 2048, 22050);
+    osc.generate();
+    var signal = osc.signal;
+
+
+  ADSR(attack, decay, sustainLevel, sustain, release, sampleRate): Attack-Decay-Sustain-Release Envelope
+    
+    Usage:
+
+    var envelope = new ADSR(0.01, 0.1, 0.5, 0.1, 0.2, 44100);
+    envelope.process(signal);
+
+
+  IIRFilter(filter, cutoff, sampleRate): Infinite Impulse Response Filters
+    * Low Pass Filter
+    * High Pass Filter
+
+    Usage:
+
+    var filter = IIRFilter(LOWPASS, 200, 44100);
+    filter.process(signal);
+
+
+  BeatDetektor (by Charles J. Cliffe): BPM detector
+
+
+@corban                                                    weare.buildingsky.net
+________________________________________________________________________________
+
+       Copyright (c) 2010 Corban Brook, released under the LGPL license
+                                                                                  

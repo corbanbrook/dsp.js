@@ -1,0 +1,85 @@
+<html>
+  <head>      
+    <script language="javascript" src="js/processing.js"></script>
+    <script language="javascript" src="js/init.js"></script>
+    <script language="javascript" src="../dsp.js"></script>
+  </head>
+  <body>
+    <script>
+      // Setup shared variables
+      var bufferSize = 2048;
+      var sampleRate = 44100.0;
+
+      var sine;
+      var lp12;
+
+      // Setup experimental audio out
+      var output = new Audio();
+
+      if ( typeof output.mozSetup === 'function' ) {
+        output.mozSetup(1, sampleRate, 1);
+      }
+
+      var audioWriter = function(s) {     
+        output.mozWriteAudio(s.length, s);
+      }
+
+    </script>
+    
+    <script target="#signal" type="application/processing">
+      int nthHarmonic = 1;
+      float frequency = 200;
+      float scale = 30.0;
+
+      void setup() {
+        size(512, 100);
+        frameRate(60);
+        
+        sine = new Oscillator(Oscillator.Sine, frequency, 1, bufferSize, sampleRate);
+        lp12 = new LP12(400, 1, sampleRate);
+      }
+
+      void draw() {
+        background(0);
+
+
+        if (nthHarmonic > 40 ) 
+        {
+          sizes = [2048, 1024, 512, 256, 128];
+          frequency = constrain(random(200), 20, 200);
+          bufferSize = sizes[int(random(sizes.length-1))];
+          nthHarmonic = 1;
+          lp12 = new LP12(random(400), random(0.5) + 1, sampleRate);
+          sine = new Oscillator(Oscillator.Saw, frequency, 1, bufferSize, sampleRate);
+        }
+
+        frequency = constrain((mouseX/10) * (mouseX/50), 10, 1000);
+        
+        // Add harmonic
+        if ( nthHarmonic > 1 ) {
+          harmonic = new Oscillator(Oscillator.Sine, frequency*nthHarmonic, 1/nthHarmonic, bufferSize, sampleRate); 
+          sine.add(harmonic); 
+        }
+        
+        nthHarmonic += 2; // 3rd, 5th, 7th, 9th, etc
+
+        
+        // Draw additive signal
+        stroke(255);
+        strokeWeight(1.5);
+        
+        for ( int i = 0; i < bufferSize - 1; i++ ) {
+          line(i, scale + 10 - sine.signal[i] * scale, i+1, scale + 10 - sine.signal[i+1] * scale);
+        }
+
+        // Play the generated waveform
+        lp12.process(sine.signal);
+        audioWriter(sine.signal);
+      }
+    </script>
+  
+    <h1>No Wave is Angry</h1>
+    <p>Just super messed up</p>
+    <div><canvas id="signal" width="200px" height="200px"></canvas></div>
+  </body>
+</html>
