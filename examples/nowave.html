@@ -37,7 +37,7 @@
         frameRate(60);
         
         sine = new Oscillator(Oscillator.Sine, frequency, 1, bufferSize, sampleRate);
-        lp12 = new LP12(400, 1, sampleRate);
+        lp12 = new IIRFilter(DSP.LOWPASS, 400, 1, sampleRate);
         windowFunc = new WindowFunction(WindowFunction.Hann);
 
         stroke(255);
@@ -59,7 +59,7 @@
           nthHarmonic = 1;
           sine = new Oscillator(Oscillator.Saw, frequency, 1, bufferSize, sampleRate);
         }
-          lp12 = new LP12(random(22050), random(5) + 1, sampleRate);
+          lp12 = new IIRFilter(DSP.LOWPASS, random(22050), random(5) + 1, sampleRate);
 
         frequency = constrain((mouseX/50) * (mouseX/50), 10, 1000);
 

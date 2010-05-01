@@ -2,9 +2,9 @@
 <html>
   <head>
     <!-- Load JQuery and JQuery-UI -->
-    <link type="text/css" href="css/smoothness/jquery-ui-1.7.2.custom.css" rel="stylesheet" />  
-    <script type="text/javascript" src="js/jquery-1.3.2.min.js"></script>
-    <script type="text/javascript" src="js/jquery-ui-1.7.2.custom.min.js"></script>
+    <link type="text/css" href="css/hot-sneaks/jquery-ui-1.8.custom.css" rel="stylesheet" />  
+    <script type="text/javascript" src="js/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.8.custom.min.js"></script>
     
     <!-- Load Processing.js -->
     <script language="javascript" src="js/processing.js"></script>
@@ -14,8 +14,8 @@
     <script src="../dsp.js"></script>
     <script>
       $(function() {
-        $('#cutoff').slider({ orientation: 'vertical', range: 'min', min: 60, max: 5000, step: 1, value: 880 });
-        $('#res').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 20.0, value: 1.0, step: 0.01 });
+        $('#cutoff').slider({ orientation: 'vertical', range: 'min', min: 60, max: 5000, step: 1, value: 880, slide: changeFilter });
+        $('#res').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 20.0, value: 1.0, step: 0.01, slide: changeFilter });
       });
     </script>
 
@@ -64,60 +64,59 @@
     <script>
       // Setup shared variables
       var sampleRate = 44100;
-      var bufferSize = 1024;
-      
-      var audioBuffer = [];
-      var notPlaying = true;
       
       var signal = [];
       var lp12;
 
       var writeCount = 0;
-      
+
       // Setup experimental audio out
       var output = new Audio();
       
       if ( typeof output.mozSetup === 'function' ) {
         output.mozSetup(1, sampleRate, 1);
       }
-      
-      var audioWriter = function(s) {     
+
+      var changeFilter = function() {
         lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
-        lp12.process(s);
-                
-        output.mozWriteAudio(s.length, s);
-        writeCount++;
       }
       
       function audioWritten(event) {
+
         var mozSignal = event.mozFrameBuffer;
 
-        // Convert mozSignal to native js array
-        if ( mozSignal.length <= 4096 ) {
-          for ( var i = 0; i < mozSignal.length / 2; i++ ) {
-            if ( mozSignal.item(i) != 0 ) {
-              signal[i] = (mozSignal.item(2*i));// + mozSignal.item(2*i+1));
-              //signal[i] = mozSignal.item(i);
-            }
+        // Convert mozSignal to mono native js array
+        signal = [];
+        for ( var i = 0, signalLength = mozSignal.length; i < signalLength / 2; i++ ) {
+          if ( mozSignal.item(2*i) == 0 ) {
+            break;
           }
-        
-          setTimeout(audioWriter, 0, signal);
+          signal[i] = (mozSignal.item(2*i) + mozSignal.item(2*i+1)) / 2;
         }
+        
+        // Apply the filter to the signal
+        lp12.process(signal);
+
+        output.mozWriteAudio(0, []); // flush
+        output.mozWriteAudio(signal.length, signal);
+        writeCount++;
       }
     </script>
     
     <script type="application/processing" target="#signal">
       void setup() {
         size(512, 200);
-        lp12 = new LP12(22050, 0, sampleRate);
-        //lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
+        lp12 = new IIRFilter(DSP.LOWPASS, 22050, 0, sampleRate);
+        lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
+
         stroke(255);
         strokeWeight(1);
+        frameRate(20);
       }
       
       void draw() {
         background(100, 100, 200);
-        for (int i = 0; i < signal.length / 4; i++) {
+        for (int i = 0; i < width; i++) {
           line(i, height/2 - signal[4*i]/2 * 200, i, height/2 + signal[4*i]/2 * 200);
         }
       }
@@ -125,8 +124,15 @@
     
     <h1>Audio Filter</h1>
     <p>Applies a Low pass filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
-
-    <audio id='input' tabindex="0" src="cj_wakbreak2et.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio><br>
+    <p>The low pass filter acts as a gate, only letting frequencies below the cut off value through.</p> 
+    
+    <p>The <b>F</b> slider controls the cut off frequency, between 0 and 22050 Hz.</p>
+    <p>The <b>Q</b>
+    slider controls the resonance drive.</p>
+    <p>A low frequency cutoff and strong resonance can give an acidy or dampened underwater effect.</p>
+    <p>(Be careful! Adjust your volume! Certain slider combinations can give off loud undesired schreeching noises!)</p>
+    <p>Music: Delv-X: Megaman theme (cover)</p>
+    <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio><br>
 
     <div style="width: 620px;">
       <div><canvas id="signal" width="512px" height="200px" style="float: left;"></canvas></div>

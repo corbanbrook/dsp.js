@@ -1,8 +1,10 @@
                                   
-                                  PJSAudio
+                                  DSP.js
 
-PJSAudio is a comprehensive audio library for javascript/processing.js. PJSAudio
-includes many functions for signal analysis and generation. 
+DSP.js is a comprehensive digital signal processing library for javascript. 
+It includes many functions for signal analysis and generation, including 
+Oscillators(sine, saw, square, triangle), Window functions (Hann, Hamming, etc), 
+Envelopes(ADSR), IIR Filters(lowpass, highpass, bandpass, notch), FFT and DFT transforms.
 
 Modules:
 
@@ -55,11 +57,9 @@ Modules:
     filter.process(signal);
 
 
-  BeatDetektor (by Charles J. Cliffe): BPM detector
-
 
 @corban                                                    weare.buildingsky.net
 ________________________________________________________________________________
 
-       Copyright (c) 2010 Corban Brook, released under the LGPL license
+       Copyright (c) 2010 Corban Brook, released under the MIT license
                                                                                   

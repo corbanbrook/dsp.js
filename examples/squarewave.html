@@ -7,7 +7,7 @@
   <body>
     <script>
       // Setup shared variables
-      var bufferSize = 2048;
+      var bufferSize = 8192;
       var sampleRate = 44100.0;
 
       var fft;
@@ -32,7 +32,7 @@
       float scale = 30.0;
 
       void setup() {
-        size(512, 100);
+        size(1024, 100);
         frameRate(60);
         
         fft = new FFT(bufferSize, sampleRate);
@@ -74,7 +74,7 @@
   
     <script target="#fft" type="application/processing">
       void setup() {
-        size(512, 300);
+        size(1024, 300);
       }
       
       void draw() {
@@ -97,7 +97,8 @@
     
     <b>1.</b> Additive sine waves combine to form a complex square wave.
     <div><canvas id="signal" width="200px" height="200px"></canvas></div>
-    <b>2.</b> The FFT graphs the harmonics frequencies as the square wave takes form.
+    <p></p>
+    <b>2.</b> The FFT graphs the harmonic frequencies as the square wave takes form.
     <div><canvas id="fft" width="200px" height="200px"></canvas></div>
   </body>
 </html>

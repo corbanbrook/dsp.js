@@ -9,14 +9,19 @@
 DSP = function() {};
 
 // Waveforms
-DSP.SINEWAVE     = 1;
-DSP.SQUAREWAVE   = 2;
-DSP.SAWWAVE      = 3;
-DSP.TRIANGLEWAVE = 4;
+DSP.SINE     = 1;
+DSP.TRIANGLE = 2;
+DSP.SAW      = 3;
+DSP.SQUARE   = 4;
 
 // IIR Filters
-DSP.LOWPASS      = 5;
-DSP.HIGHPASS     = 6;
+DSP.LOWPASS  = 0;
+DSP.HIGHPASS = 1;
+DSP.BANDPASS = 2;
+DSP.NOTCH    = 3;
+
+// Window functions
+DSP.HANN     = 7;
 
 DSP.TWO_PI = 2*Math.PI;
 
@@ -138,15 +143,7 @@ FFT.prototype.forward = function(buffer) {
   return this.spectrum;
 };
   
-/*  Oscillator Signal Generator
- *    
- *  Usage: var sine = Oscillator(SINEWAVE, 440.0, 1, 2048, 44100);
- *         var signal = sine.generate();
- *
- */
-
-Oscillator = function(waveFunc, frequency, amplitude, bufferSize, sampleRate) {
-    this.waveFunc   = waveFunc;
+Oscillator = function Oscillator(type, frequency, amplitude, bufferSize, sampleRate) {
     this.frequency  = frequency;
     this.amplitude  = amplitude;
     this.bufferSize = bufferSize;
@@ -158,6 +155,25 @@ Oscillator = function(waveFunc, frequency, amplitude, bufferSize, sampleRate) {
     this.signal = new Array(bufferSize);
     this.envelope = null;
     this.envelopedSignal = new Array(bufferSize);
+
+    switch(parseInt(type)) {
+      case DSP.TRIANGLE:
+        this.func = Oscillator.Triangle;
+        break;
+
+      case DSP.SAW:
+        this.func = Oscillator.Saw;
+        break;
+
+      case DSP.SQUARE:
+        this.func = Oscillator.Square;
+        break;
+
+      case DSP.SINE:
+      default:
+        this.func = Oscillator.Sine;
+        break;
+    }
 
     this.generate();
 }; 
@@ -213,7 +229,7 @@ Oscillator.prototype.generate = function() {
   for ( var i = 0; i < this.bufferSize; i++ ) {
     step = (frameOffset + i) * this.cyclesPerSample % 1;
 
-    this.signal[i] = this.waveFunc(step) * this.amplitude;
+    this.signal[i] = this.func(step) * this.amplitude;
   }
 
   this.frameCount++;
@@ -278,6 +294,22 @@ ADSR.prototype.processSample = function(sample) {
   
   return sample * amplitude;
 };
+
+ADSR.prototype.value = function() {
+  var amplitude = 0;
+
+  if ( this.samplesProcessed <= this.attack ) {
+    amplitude = 0 + (1 - 0) * ((this.samplesProcessed - 0) / (this.attack - 0));
+  } else if ( this.samplesProcessed > this.attack && this.samplesProcessed <= this.decay ) {
+    amplitude = 1 + (this.sustainLevel - 1) * ((this.samplesProcessed - this.attack) / (this.decay - this.attack));
+  } else if ( this.samplesProcessed > this.decay && this.samplesProcessed <= this.sustain ) {
+    amplitude = this.sustainLevel;
+  } else if ( this.samplesProcessed > this.sustain && this.samplesProcessed <= this.release ) {
+    amplitude = this.sustainLevel + (0 - this.sustainLevel) * ((this.samplesProcessed - this.sustain) / (this.release - this.sustain));
+  }
+  
+  return amplitude;
+};
       
 ADSR.prototype.process = function(buffer) {
   for ( var i = 0; i < buffer.length; i++ ) {
@@ -299,7 +331,7 @@ ADSR.prototype.process = function(buffer) {
     this.samplesProcessed++;
     */
 
-    buffer[i] = this.processSample(buffer[i]);
+    buffer[i] *= this.value();
 
     this.samplesProcessed++;
   }
@@ -316,10 +348,41 @@ ADSR.prototype.isActive = function() {
   }
 };
   
-LP12 = function(cutoff, resonance, sampleRate) {
+IIRFilter = function(type, cutoff, resonance, sampleRate) {
+  this.sampleRate = sampleRate;
+  this.cutoff     = cutoff;
+  this.resonance  = resonance;
+
+  switch(type) {
+    case DSP.LOWPASS:
+    case DSP.LP12:
+      this.func = new IIRFilter.LP12(cutoff, resonance, sampleRate);
+      break;
+  }
+}
+
+IIRFilter.prototype.set = function(cutoff, resonance) {
+  this.func.calcCoeff(cutoff, resonance);
+}
+
+IIRFilter.prototype.process = function(buffer) {
+  this.func.process(buffer);
+}
+
+// Add an envelope to the filter
+IIRFilter.prototype.addEnvelope = function(envelope) {
+  if ( envelope instanceof ADSR ) {
+    this.func.addEnvelope(envelope);
+  } else {
+    throw "Not an envelope.";
+  }
+};
+
+IIRFilter.LP12 = function(cutoff, resonance, sampleRate) {
   this.sampleRate = sampleRate;
   this.vibraPos   = 0; 
   this.vibraSpeed = 0;
+  this.envelope = false;
   
   this.calcCoeff = function(cutoff, resonance) {
     this.w = 2.0 * Math.PI * cutoff / this.sampleRate;
@@ -332,43 +395,114 @@ LP12 = function(cutoff, resonance, sampleRate) {
   };
 
   this.calcCoeff(cutoff, resonance);
+
+  this.process = function(buffer) {
+    for ( var i = 0; i < buffer.length; i++ ) {
+      this.vibraSpeed += (buffer[i] - this.vibraPos) * this.c;
+      this.vibraPos   += this.vibraSpeed;
+      this.vibraSpeed *= this.r;
+    
+      /* 
+      var temp = this.vibraPos;
+      
+      if ( temp > 1.0 ) {
+        temp = 1.0;
+      } else if ( temp < -1.0 ) {
+        temp = -1.0;
+      } else if ( temp != temp ) {
+        temp = 1;
+      }
+      
+      buffer[i] = temp;
+      */ 
+
+      if (this.envelope) {
+        buffer[i] = (buffer[i] * (1 - this.envelope.value())) + (this.vibraPos * this.envelope.value());
+        this.envelope.samplesProcessed++;
+      } else {
+        buffer[i] = this.vibraPos;
+      }
+    }
+  }
 };  
 
-LP12.prototype.set = function(cutoff, resonance) {
+IIRFilter.LP12.prototype.addEnvelope = function(envelope) {
+  this.envelope = envelope;
+};
+
+IIRFilter2 = function(type, cutoff, resonance, sampleRate) {
+  this.type = type; 
+  this.cutoff = cutoff;
+  this.resonance = resonance;
+  this.sampleRate = sampleRate;
+
+  this.calcCoeff = function(cutoff, resonance) {
+    this.freq = 2 * Math.sin(Math.PI * Math.min(0.25, cutoff/(this.sampleRate*2)));   
+    this.damp = Math.min(2 * (1 - Math.pow(resonance, 0.25)), Math.min(2, 2/this.freq - this.freq * 0.5));
+  };
+
   this.calcCoeff(cutoff, resonance);
 };
 
-LP12.prototype.process = function(buffer) {
+IIRFilter2.prototype.process = function(buffer) {
+  var input, output, lp, hp, bp, br;
+
+  var f = Array(4);
+  f[0] = 0; // lp
+  f[1] = 0; // hp
+  f[2] = 0; // bp
+  f[3] = 0; // br
+
   for ( var i = 0; i < buffer.length; i++ ) {
-    this.vibraSpeed += (buffer[i] - this.vibraPos) * this.c;
-    this.vibraPos   += this.vibraSpeed;
-    this.vibraSpeed *= this.r;
-  
-    /* 
-    var temp = this.vibraPos;
-    
-    if ( temp > 1.0 ) {
-      temp = 1.0;
-    } else if ( temp < -1.0 ) {
-      temp = -1.0;
-    } else if ( temp != temp ) {
-      temp = 1;
+    input = buffer[i]; 
+
+    // first pass
+    f[3] = input - this.damp * f[2];
+    f[0] = f[0] + this.freq * f[2];
+    f[1] = f[3] - f[0];
+    f[2] = this.freq * f[1] + f[2];
+    output = 0.5 * f[this.type];
+
+    // second pass
+    f[3] = input - this.damp * f[2];
+    f[0] = f[0] + this.freq * f[2];
+    f[1] = f[3] - f[0];
+    f[2] = this.freq * f[1] + f[2];
+    output += 0.5 * f[this.type];
+
+    if (this.envelope) {
+      buffer[i] = (buffer[i] * (1 - this.envelope.value())) + (output * this.envelope.value());
+      this.envelope.samplesProcessed++;
+    } else {
+      buffer[i] = output;
     }
-    
-    buffer[i] = temp;
-    */ 
-    buffer[i] = this.vibraPos;
   }
 };
 
-WindowFunction = function(windowFunc) {
-  this.windowFunc = windowFunc;
+IIRFilter2.prototype.addEnvelope = function(envelope) {
+  if ( envelope instanceof ADSR ) {
+    this.envelope = envelope;
+  } else {
+    throw "This is not an envelope.";
+  }
+};
+
+IIRFilter2.prototype.set = function(cutoff, resonance) {
+  this.calcCoeff(cutoff, resonance); 
+};
+
+WindowFunction = function(type, params) {
+  switch(type) {
+    case DSP.HANN:
+      this.func = WindowFunction.Hann;
+      break;
+  }
 };
 
 WindowFunction.prototype.process = function(buffer) {
   var length = buffer.length;
   for ( var i = 0; i < length; i++ ) {
-    buffer[i] *= this.windowFunc(i, length);
+    buffer[i] *= this.func(i, length);
   }
 };
 
