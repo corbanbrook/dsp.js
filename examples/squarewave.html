@@ -37,6 +37,7 @@
         
         fft = new FFT(bufferSize, sampleRate);
         sine = new Oscillator(Oscillator.Sine, frequency, 1, bufferSize, sampleRate);
+        sine.generate();
       }
 
       void draw() {
@@ -51,6 +52,7 @@
         // Add harmonic
         if ( nthHarmonic > 1 ) {
           harmonic = new Oscillator(Oscillator.Sine, frequency*nthHarmonic, 1/nthHarmonic, bufferSize, sampleRate); 
+          harmonic.generate();
           sine.add(harmonic); 
         }
         

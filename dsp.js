@@ -142,7 +142,7 @@ FFT.prototype.forward = function(buffer) {
   
   return this.spectrum;
 };
-  
+
 Oscillator = function Oscillator(type, frequency, amplitude, bufferSize, sampleRate) {
     this.frequency  = frequency;
     this.amplitude  = amplitude;
@@ -150,6 +150,8 @@ Oscillator = function Oscillator(type, frequency, amplitude, bufferSize, sampleR
     this.sampleRate = sampleRate;
     this.frameCount = 0;
     
+    this.waveTableLength = 2048;
+
     this.cyclesPerSample = frequency / sampleRate;
 
     this.signal = new Array(bufferSize);
@@ -175,8 +177,29 @@ Oscillator = function Oscillator(type, frequency, amplitude, bufferSize, sampleR
         break;
     }
 
-    this.generate();
+    this.generateWaveTable = function() {
+      Oscillator.waveTable[this.func] = Array(2048);
+      var waveTableTime = this.waveTableLength / this.sampleRate;
+      var waveTableHz = 1 / waveTableTime;
+
+      for (var i = 0; i < this.waveTableLength; i++) {
+        Oscillator.waveTable[this.func][i] = this.func(i * waveTableHz/this.sampleRate);
+      }
+    };
+
+    if ( typeof Oscillator.waveTable === 'undefined' ) {
+      Oscillator.waveTable = {};
+    }
+
+    if ( typeof Oscillator.waveTable[this.func] === 'undefined' ) { 
+      this.generateWaveTable();
+    }
+    
+    this.waveTable = Oscillator.waveTable[this.func];
+
+    //this.generate();
 }; 
+
 
 Oscillator.prototype.setAmp = function(amplitude) {
   if (amplitude >= 0 && amplitude <= 1) {
@@ -210,6 +233,13 @@ Oscillator.prototype.addSignal = function(signal) {
       break;
     }
     this.signal[i] += signal[i];
+    
+    /*
+    if ( this.signal[i] > 1 ) {
+      this.signal[i] = 1;
+    } else if ( this.signal[i] < -1 ) {
+      this.signal[i] = -1;
+    }*/
   }
   return self.signal;
 };
@@ -220,16 +250,21 @@ Oscillator.prototype.addEnvelope = function(envelope) {
 };
       
 Oscillator.prototype.valueAt = function(offset) {
-  return this.waveLength[offset % this.waveLength.length];
+  //return this.waveLength[offset % this.waveLength.length];
+  return this.waveTable[offset % this.waveTableLength];
 };
       
 Oscillator.prototype.generate = function() {
-  var frameOffset = this.frameCount * this.bufferSize, step;
+  var frameOffset = this.frameCount * this.bufferSize;
+  var step = this.waveTableLength * this.frequency / this.sampleRate;
+  var offset;
 
   for ( var i = 0; i < this.bufferSize; i++ ) {
-    step = (frameOffset + i) * this.cyclesPerSample % 1;
-
-    this.signal[i] = this.func(step) * this.amplitude;
+    //var step = (frameOffset + i) * this.cyclesPerSample % 1;
+    //this.signal[i] = this.func(step) * this.amplitude;
+    //this.signal[i] = this.valueAt(Math.round((frameOffset + i) * step)) * this.amplitude; 
+    offset = Math.round((frameOffset + i) * step);
+    this.signal[i] = this.waveTable[offset % this.waveTableLength] * this.amplitude;
   }
 
   this.frameCount++;
