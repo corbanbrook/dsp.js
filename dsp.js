@@ -634,3 +634,238 @@ WindowFunction.Blackman = function(length, index, alpha) {
 WindowFunction.Gauss = function(length, index, alpha) {
   return Math.pow(Math.E, -0.5 * Math.pow((index - (length - 1) / 2) / (alpha * (length - 1) / 2), 2));
 };
+
+// Parameter types for the Biquad filter
+DSP.Q = 0;
+DSP.BW = 1;
+DSP.S = 2;
+
+// Biquad filter types
+DSP.LPF = 0;       // H(s) = 1 / (s^2 + s/Q + 1)
+DSP.HPF = 1;       // H(s) = s^2 / (s^2 + s/Q + 1)
+DSP.BPF_CONSTANT_SKIRT = 2;       // H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
+DSP.BPF_CONSTANT_PEAK = 3;       // H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
+DSP.NOTCH = 4;     // H(s) = (s^2 + 1) / (s^2 + s/Q + 1)
+DSP.APF = 5;       // H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
+DSP.PEAKING_EQ = 6;  // H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
+DSP.LOW_SHELF = 7;   // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
+DSP.HIGH_SHELF = 8;   // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
+
+// Implementation based on:
+// http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
+Biquad = function(type, sampleRate) {
+  this.Fs = sampleRate;
+  this.type = type;  // type of the filter
+  this.parameterType = DSP.Q; // type of the parameter
+
+  this.f0 = f0; // "wherever it's happenin', man."  Center Frequency or
+		// Corner Frequency, or shelf midpoint frequency, depending
+		// on which filter type.  The "significant frequency".
+
+  this.dBgain = 12; // used only for peaking and shelving filters
+
+  this.Q = 3;  // the EE kind of definition, except for peakingEQ in which A*Q is
+	       // the classic EE Q.  That adjustment in definition was made so that
+	       // a boost of N dB followed by a cut of N dB for identical Q and
+               // f0/Fs results in a precisely flat unity gain filter or "wire".
+
+  this.BW = 1; // the bandwidth in octaves (between -3 dB frequencies for BPF
+	       // and notch or between midpoint (dBgain/2) gain frequencies for
+	       // peaking EQ
+
+  this.S = 1;  // a "shelf slope" parameter (for shelving EQ only).  When S = 1,
+	       // the shelf slope is as steep as it can be and remain monotonically
+	       // increasing or decreasing gain with frequency.  The shelf slope, in
+	       // dB/octave, remains proportional to S for all other values for a
+	       // fixed f0/Fs and dBgain.
+
+  this.setSampleRate = function(rate) {
+    this.Fs = rate;
+    recalculateCoefficients();
+  }
+
+  this.setQ = function(q) {
+    this.parameterType = DSP.Q;
+    this.Q = q;
+    recalculateCoefficients();
+  }
+
+  this.setBW = function(bw) {
+    this.parameterType = DSP.BW;
+    this.BW = bw;
+    recalculateCoefficients();
+  }  
+
+  this.setS = function(s) {
+    this.parameterType = DSP.S;
+    this.S = s;
+    recalculateCoefficients();
+  }  
+
+  this.setF0 = function(freq) {
+    this.f0 = freq;
+    recalculateCoefficients();
+  }  
+  
+  this.setDbGain = function(g) {
+    this.dBgain = g;
+    recalculateCoefficients();
+  }
+
+  this.recalculateCoefficients() {
+    var A;
+    if (type == DSP.PEAKING || type == DSP.SHELVING) {
+      A = 10^(dBgain/40);  // for peaking and shelving EQ filters only
+
+    } else {
+      A  = sqrt( 10^(dBgain/20) );
+    }
+    
+
+    var w0 = DSP.TWO_PI * this.f0 / this.Fs;
+
+    var cosw0 = Math.cos(w0);
+    var sinw0 = Math.sin(w0);
+
+    var alpha = 0;
+    
+    switch (this.parameterType) {
+      case DSP.Q:
+	alpha = sinw0/(2*this.Q);
+	break;
+      
+      case DSP.BW:
+        alpha = sinw0 * Math.sinh( Math.ln(2)/2 * this.BW * w0/sinw0 );
+	break;
+
+      case DSP.S:
+        alpha = sinw0/2 * Math.sqrt( (A + 1/A)*(1/this.S - 1) + 2 );
+    }
+
+    /**
+        FYI: The relationship between bandwidth and Q is
+             1/Q = 2*sinh(ln(2)/2*BW*w0/sin(w0))     (digital filter w BLT)
+        or   1/Q = 2*sinh(ln(2)/2*BW)             (analog filter prototype)
+
+        The relationship between shelf slope and Q is
+             1/Q = sqrt((A + 1/A)*(1/S - 1) + 2)
+    */
+
+    switch (this.type) {
+      case DSP.LPF:       // H(s) = 1 / (s^2 + s/Q + 1)
+	this.b0 =  (1 - cosw0)/2;
+        this.b1 =   1 - cosw0;
+        this.b2 =  (1 - cosw0)/2;
+        this.a0 =   1 + alpha;
+        this.a1 =  -2 * cosw0;
+        this.a2 =   1 - alpha;
+	break;
+
+      case DSP.HPF:       // H(s) = s^2 / (s^2 + s/Q + 1)
+        this.b0 =  (1 + cosw0)/2;
+        this.b1 = -(1 + cosw0);
+        this.b2 =  (1 + cosw0)/2;
+        this.a0 =   1 + alpha;
+        this.a1 =  -2 * cosw0;
+        this.a2 =   1 - alpha;
+	break;
+
+      case DSP.BPF_CONSTANT_SKIRT:       // H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
+            this.b0 =   sinw0/2;
+            this.b1 =   0;
+            this.b2 =  -sinw0/2;
+            this.a0 =   1 + alpha;
+            this.a1 =  -2*cosw0;
+            this.a2 =   1 - alpha;
+	    break;
+
+      case DSP.BPF_CONSTANT_PEAK:       // H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
+            this.b0 =   alpha;
+            this.b1 =   0;
+            this.b2 =  -alpha;
+            this.a0 =   1 + alpha;
+            this.a1 =  -2*cosw0;
+            this.a2 =   1 - alpha;
+	    break;
+
+
+      case DSP.NOTCH:     // H(s) = (s^2 + 1) / (s^2 + s/Q + 1)
+            this.b0 =   1;
+            this.b1 =  -2*cosw0;
+            this.b2 =   1;
+            this.a0 =   1 + alpha;
+            this.a1 =  -2*cosw0;
+            this.a2 =   1 - alpha;
+	    break;
+
+
+      case DSP.APF:       // H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
+            this.b0 =   1 - alpha;
+            this.b1 =  -2*cosw0;
+            this.b2 =   1 + alpha;
+            this.a0 =   1 + alpha;
+            this.a1 =  -2*cosw0;
+            this.a2 =   1 - alpha;
+	    break;
+
+
+      case DSP.PEAKING_EQ:  // H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
+            this.b0 =   1 + alpha*A;
+            this.b1 =  -2*cosw0;
+            this.b2 =   1 - alpha*A;
+            this.a0 =   1 + alpha/A;
+            this.a1 =  -2*cosw0;
+            this.a2 =   1 - alpha/A;
+	    break;
+
+
+      case DSP.LOW_SHELF:   // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
+	    var coeff = sinw0 * sqrt( (A^2 + 1)*(1/S - 1) + 2*A );
+            this.b0 =    A*( (A+1) - (A-1)*cosw0 + coeff );
+            this.b1 =  2*A*( (A-1) - (A+1)*cosw0                   );
+            this.b2 =    A*( (A+1) - (A-1)*cosw0 - coeff );
+            this.a0 =        (A+1) + (A-1)*cosw0 + coeff;
+            this.a1 =   -2*( (A-1) + (A+1)*cosw0                   );
+            this.a2 =        (A+1) + (A-1)*cosw0 - coeff;
+	    break;
+
+
+      case DSP.HIGH_SHELF:   // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
+	    var coeff = sinw0 * sqrt( (A^2 + 1)*(1/S - 1) + 2*A );
+            this.b0 =    A*( (A+1) + (A-1)*cosw0 + coeff );
+            this.b1 = -2*A*( (A-1) + (A+1)*cosw0                   );
+            this.b2 =    A*( (A+1) + (A-1)*cosw0 - coeff );
+            this.a0 =        (A+1) - (A-1)*cosw0 + coeff;
+            this.a1 =    2*( (A-1) - (A+1)*cosw0                   );
+            this.a2 =        (A+1) - (A-1)*cosw0 - coeff;
+	    break;
+    }
+
+  }
+
+  var lastFrame = 0;
+
+  this.process = function(buffer) {
+      var iSamples = buffer;
+      var oSamples = Array(buffer.length);
+      
+      iHop = iFrames.channels(), oHop = oFrames.channels();
+      for ( var i=0; i<iFrames.length; i++, iSamples += iHop, oSamples += oHop ) {
+	inputs_[0] = iSamples;
+	*oSamples = b0 * inputs_[0] + b1 * inputs_[1] + b2 * inputs_[2];
+	*oSamples -= a2 * outputs_[2] + a1 * outputs_[1];
+	inputs_[2] = inputs_[1];
+	inputs_[1] = inputs_[0];
+	outputs_[2] = outputs_[1];
+	outputs_[1] = *oSamples;
+      }
+
+      lastFrame_[0] = outputs_[1];
+      return iFrames;
+  }
+
+  this.tick = function(sample) {
+        y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
+                        - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
+  }
+}
