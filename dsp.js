@@ -658,6 +658,31 @@ Biquad = function(type, sampleRate) {
   this.type = type;  // type of the filter
   this.parameterType = DSP.Q; // type of the parameter
 
+  this.x_1_l = 0;
+  this.x_2_l = 0;
+  this.y_1_l = 0;
+  this.y_2_l = 0;
+
+  this.x_1_r = 0;
+  this.x_2_r = 0;
+  this.y_1_r = 0;
+  this.y_2_r = 0;
+
+  this.b0 = 1;
+  this.a0 = 1;
+
+  this.b1 = 0;
+  this.a1 = 0;
+
+  this.b2 = 0;
+  this.a2 = 0;
+
+  this.b0a0 = this.b0 / this.a0;
+  this.b1a0 = this.b1 / this.a0;
+  this.b2a0 = this.b2 / this.a0;
+  this.a1a0 = this.a1 / this.a0;
+  this.a2a0 = this.a2 / this.a0;
+
   this.f0 = f0; // "wherever it's happenin', man."  Center Frequency or
 		// Corner Frequency, or shelf midpoint frequency, depending
 		// on which filter type.  The "significant frequency".
@@ -841,31 +866,33 @@ Biquad = function(type, sampleRate) {
 	    break;
     }
 
+    this.b0a0 = this.b0/this.a0;
+    this.b1a0 = this.b1/this.a0;
+    this.b2a0 = this.b2/this.a0;
+    this.a1a0 = this.a1/this.a0;
+    this.a2a0 = this.a2/this.a0;
   }
-
-  var lastFrame = 0;
 
   this.process = function(buffer) {
-      var iSamples = buffer;
-      var oSamples = Array(buffer.length);
+      //y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
+      //       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
+
+      var output = Array(buffer.length);
       
-      iHop = iFrames.channels(), oHop = oFrames.channels();
-      for ( var i=0; i<iFrames.length; i++, iSamples += iHop, oSamples += oHop ) {
-	inputs_[0] = iSamples;
-	*oSamples = b0 * inputs_[0] + b1 * inputs_[1] + b2 * inputs_[2];
-	*oSamples -= a2 * outputs_[2] + a1 * outputs_[1];
-	inputs_[2] = inputs_[1];
-	inputs_[1] = inputs_[0];
-	outputs_[2] = outputs_[1];
-	outputs_[1] = *oSamples;
+      for ( var i=0; i<buffer.length-1; i+=2 ) {
+	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l:
+	this.y_2_l = this.y_1_l;
+	this.y_1_l = output[i];
+	this.x_2_l = this.x_1_l;
+	this.x_1_l = buffer[i];
+
+	output[i+1] = this.b0a0*buffer[i+1] + this.b1a0*this.x_1_r + this.b2a0*this.x_2_r - this.a1a0*this.y_1_r - this.a2a0*this.y_2_r:
+	this.y_2_r = this.y_1_r;
+	this.y_1_r = output[i+1];
+	this.x_2_r = this.x_1_r;
+	this.x_1_r = buffer[i+1];
       }
 
-      lastFrame_[0] = outputs_[1];
-      return iFrames;
-  }
-
-  this.tick = function(sample) {
-        y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
-                        - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
+      return output;
   }
 }
