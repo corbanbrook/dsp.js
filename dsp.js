@@ -34,6 +34,23 @@ DSP.COSINE       = 16;
 
 DSP.TWO_PI = 2*Math.PI;
 
+// Biquad filter types
+DSP.LPF = 0;       // H(s) = 1 / (s^2 + s/Q + 1)
+DSP.HPF = 1;       // H(s) = s^2 / (s^2 + s/Q + 1)
+DSP.BPF_CONSTANT_SKIRT = 2;       // H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
+DSP.BPF_CONSTANT_PEAK = 3;       // H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
+DSP.NOTCH = 4;     // H(s) = (s^2 + 1) / (s^2 + s/Q + 1)
+DSP.APF = 5;       // H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
+DSP.PEAKING_EQ = 6;  // H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
+DSP.LOW_SHELF = 7;   // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
+DSP.HIGH_SHELF = 8;   // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
+
+// Biquad filter parameter types
+DSP.Q = 0;
+DSP.BW = 1;
+DSP.S = 2;
+
+
 DFT = function(bufferSize, sampleRate) {
   this.bufferSize = bufferSize;
   this.sampleRate = sampleRate;
@@ -635,22 +652,6 @@ WindowFunction.Gauss = function(length, index, alpha) {
   return Math.pow(Math.E, -0.5 * Math.pow((index - (length - 1) / 2) / (alpha * (length - 1) / 2), 2));
 };
 
-// Parameter types for the Biquad filter
-DSP.Q = 0;
-DSP.BW = 1;
-DSP.S = 2;
-
-// Biquad filter types
-DSP.LPF = 0;       // H(s) = 1 / (s^2 + s/Q + 1)
-DSP.HPF = 1;       // H(s) = s^2 / (s^2 + s/Q + 1)
-DSP.BPF_CONSTANT_SKIRT = 2;       // H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
-DSP.BPF_CONSTANT_PEAK = 3;       // H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
-DSP.NOTCH = 4;     // H(s) = (s^2 + 1) / (s^2 + s/Q + 1)
-DSP.APF = 5;       // H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
-DSP.PEAKING_EQ = 6;  // H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
-DSP.LOW_SHELF = 7;   // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
-DSP.HIGH_SHELF = 8;   // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
-
 // Implementation based on:
 // http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 Biquad = function(type, sampleRate) {
@@ -874,6 +875,23 @@ Biquad = function(type, sampleRate) {
   }
 
   this.process = function(buffer) {
+      //y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
+      //       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
+
+      var output = Array(buffer.length);
+      
+      for ( var i=0; i<buffer.length; i++ ) {
+	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l:
+	this.y_2_l = this.y_1_l;
+	this.y_1_l = output[i];
+	this.x_2_l = this.x_1_l;
+	this.x_1_l = buffer[i];
+      }
+
+      return output;
+  }
+
+  this.processStereo = function(buffer) {
       //y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
       //       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
 
