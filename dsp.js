@@ -652,6 +652,16 @@ WindowFunction.Gauss = function(length, index, alpha) {
   return Math.pow(Math.E, -0.5 * Math.pow((index - (length - 1) / 2) / (alpha * (length - 1) / 2), 2));
 };
 
+function sinh (arg) {
+    // Returns the hyperbolic sine of the number, defined as (exp(number) - exp(-number))/2  
+    // 
+    // version: 1004.2314
+    // discuss at: http://phpjs.org/functions/sinh    // +   original by: Onno Marsman
+    // *     example 1: sinh(-0.9834330348825909);
+    // *     returns 1: -1.1497971402636502
+    return (Math.exp(arg) - Math.exp(-arg))/2;
+}
+
 // Implementation based on:
 // http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 Biquad = function(type, sampleRate) {
@@ -688,14 +698,14 @@ Biquad = function(type, sampleRate) {
 		// Corner Frequency, or shelf midpoint frequency, depending
 		// on which filter type.  The "significant frequency".
 
-  this.dBgain = 12; // used only for peaking and shelving filters
+  this.dBgain = -12; // used only for peaking and shelving filters
 
-  this.Q = 3;  // the EE kind of definition, except for peakingEQ in which A*Q is
+  this.Q = 1;  // the EE kind of definition, except for peakingEQ in which A*Q is
 	       // the classic EE Q.  That adjustment in definition was made so that
 	       // a boost of N dB followed by a cut of N dB for identical Q and
                // f0/Fs results in a precisely flat unity gain filter or "wire".
 
-  this.BW = 1; // the bandwidth in octaves (between -3 dB frequencies for BPF
+  this.BW = -3; // the bandwidth in octaves (between -3 dB frequencies for BPF
 	       // and notch or between midpoint (dBgain/2) gain frequencies for
 	       // peaking EQ
 
@@ -724,7 +734,7 @@ Biquad = function(type, sampleRate) {
 
   this.setS = function(s) {
     this.parameterType = DSP.S;
-    this.S = s;
+    this.S = Math.max(s, 0.0001);
     this.recalculateCoefficients();
   }  
 
@@ -740,8 +750,8 @@ Biquad = function(type, sampleRate) {
 
   this.recalculateCoefficients = function() {
     var A;
-    if (type == DSP.PEAKING || type == DSP.SHELVING) {
-      A = 10^(dBgain/40);  // for peaking and shelving EQ filters only
+    if (type == DSP.PEAKING_EQ || type == DSP.LOW_SHELF || type == DSP.HIGH_SHELF ) {
+      A = 10^(this.dBgain/40);  // for peaking and shelving EQ filters only
 
     } else {
       A  = Math.sqrt( 10^(this.dBgain/20) );
@@ -761,11 +771,12 @@ Biquad = function(type, sampleRate) {
 	break;
       
       case DSP.BW:
-        alpha = sinw0 * Math.sinh( Math.ln(2)/2 * this.BW * w0/sinw0 );
+        alpha = sinw0 * sinh( Math.LN2/2 * this.BW * w0/sinw0 );
 	break;
 
       case DSP.S:
         alpha = sinw0/2 * Math.sqrt( (A + 1/A)*(1/this.S - 1) + 2 );
+	break;
     }
 
     /**
@@ -842,7 +853,7 @@ Biquad = function(type, sampleRate) {
 	break;
 
       case DSP.LOW_SHELF:   // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
-	var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/S - 1) + 2*A );
+	var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/this.S - 1) + 2*A );
         this.b0 =    A*( (A+1) - (A-1)*cosw0 + coeff );
         this.b1 =  2*A*( (A-1) - (A+1)*cosw0                   );
         this.b2 =    A*( (A+1) - (A-1)*cosw0 - coeff );
@@ -852,7 +863,7 @@ Biquad = function(type, sampleRate) {
 	break;
 
       case DSP.HIGH_SHELF:   // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
-	var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/S - 1) + 2*A );
+	var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/this.S - 1) + 2*A );
         this.b0 =    A*( (A+1) + (A-1)*cosw0 + coeff );
         this.b1 = -2*A*( (A-1) + (A+1)*cosw0                   );
         this.b2 =    A*( (A+1) + (A-1)*cosw0 - coeff );
@@ -910,21 +921,21 @@ Biquad = function(type, sampleRate) {
   }
 };
 
-DSP.prototype.mag2db = function(buffer) {
+DSP.mag2db = function(buffer) {
   var minDb = -120;
-  var minMag = Math.pow(minDb / 20.0, 10.0);
+  var minMag = Math.pow(10.0, minDb / 20.0);
 
   var result = Array(buffer.length);
   for (var i=0; i<buffer.length; i++) {
     result[i] = 20.0*Math.log(Math.max(buffer[i], minMag));
   }
+
   return result;
 };
 
-DSP.prototype.freqz = function(b, a, omegas) {
-  var w = omegas;
-  if (arguments.length > 2) {
-    w = Array(100);
+DSP.freqz = function(b, a, w) {
+  if (!w) {
+    w = Array(400);
     for (var i=0;i<w.length; i++) {
       w[i] = DSP.TWO_PI/w.length * i - Math.PI;
     }
@@ -947,4 +958,6 @@ DSP.prototype.freqz = function(b, a, omegas) {
   
     result[i] =  Math.sqrt(Math.pow(numerator.real, 2) + Math.pow(numerator.imag, 2)) / Math.sqrt(Math.pow(denominator.real, 2) + Math.pow(denominator.imag, 2));
   }
+
+  return result;
 };

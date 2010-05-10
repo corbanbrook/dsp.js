@@ -14,8 +14,10 @@
     <script src="../dsp.js"></script>
     <script>
       $(function() {
-        $('#cutoff').slider({ orientation: 'vertical', range: 'min', min: 60, max: 5000, step: 1, value: 880, slide: changeFilter });
-        $('#res').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 20.0, value: 1.0, step: 0.01, slide: changeFilter });
+        $('#freq').slider({ orientation: 'vertical', range: 'min', min: 60, max: 10000, step: 1, value: 880, slide: changeF0 });
+        $('#q').slider({ orientation: 'vertical', range: 'min', min: 0.0, max: 1.0, value: 1.0, step: 0.001, slide: changeQ });
+        $('#bw').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 10.0, value: 1.0, step: 0.001, slide: changeBW });
+        $('#s').slider({ orientation: 'vertical', range: 'min', min: 0.0, max: 1.0, value: 1.0, step: 0.001, slide: changeS });
       });
     </script>
 
@@ -68,23 +70,40 @@
       var response = [];
       var biquad;
 
-      var changeFilter = function() {
-        biquad.setF0($('#cutoff').slider('option', 'value'));
-	biquad.setQ($('#res').slider('option', 'value'));
-
+      var plotCoeffs = function() {
 	var b = [biquad.b0, biquad.b1, biquad.b2];
 	var a = [biquad.a0, biquad.a1, biquad.a2];
 	
-	response = mag2db(freqz(b, a, []));
+	response = DSP.mag2db(DSP.freqz(b, a));
+      }
+
+      var changeF0 = function() {
+	biquad.setF0($('#freq').slider('option', 'value'));
+	plotCoeffs();
+      }
+    
+      var changeBW = function() {
+	biquad.setBW($('#bw').slider('option', 'value'));
+	plotCoeffs();
+      }
+
+      var changeS = function() {
+	biquad.setS($('#s').slider('option', 'value'));
+	plotCoeffs();
+      }
+
+      var changeQ = function() {
+        biquad.setQ($('#q').slider('option', 'value'));
+	plotCoeffs();
       }
     </script>
     
     <script type="application/processing" target="#signal">
       void setup() {
         size(512, 200);
-        biquad = new Biquad(DSP.LPF, sampleRate);
-        biquad.setF0($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
-	changeFilter();
+        biquad = new Biquad(DSP.BPF_CONSTANT_SKIRT, sampleRate);
+        changeF0();
+	changeQ();
 
         stroke(255);
         strokeWeight(1);
@@ -92,13 +111,28 @@
       }
       
       void draw() {
-        background(100, 100, 200);
+        background(255);
+
+	// Draw axes
+	float yMin = -120;
+	float yMax = 120;
+	float yCenter = 0;
+	
+	float xMin = -PI;
+	float xMax = PI;
+	float xCenter = 0;
+
+	stroke(0);
+	line(map(xCenter, xMin, xMax, 0, width), map(yMin, yMin, yMax, height, 0), map(xCenter, xMin, xMax, 0, width), map(yMax, yMin, yMax, height, 0)); 
+	line(map(xMin, xMin, xMax, 0, width), map(yCenter, yMin, yMax, height, 0), map(xMax, xMin, xMax, 0, width), map(yCenter, yMin, yMax, height, 0)); 
+      
+	// Draw the response
+	noFill();
+	stroke(10, 40, 200);
 	beginShape();
-	vertex(0, 0);
         for (int i = 0; i < response.length; i++) {
-          vertex(map(i, 0, response.length, 0, width), map(response[i], -120, 0, height, 0));
+          vertex(map(i, 0, response.length, 0, width), map(response[i], yMin, yMax, height, 0));
         }
-	vertex(width, 0);
 	endShape();
       }
     </script>
@@ -122,8 +156,10 @@
         <h3>Low Pass Filter</h3>
         <table>
           <tr>
-            <td><div id="cutoff" class="slider"></div>F</td>
-            <td><div id="res" class="slider"></div>Q</td>
+            <td><div id="freq" class="slider"></div>freq</td>
+            <td><div id="q" class="slider"></div>Q</td>
+            <td><div id="bw" class="slider"></div>BW</td>
+            <td><div id="s" class="slider"></div>S</td>
           </tr>
         </table>
       </div>
