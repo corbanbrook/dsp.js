@@ -68,13 +68,23 @@
       var sampleRate = 44100;
       
       var response = [];
+      var signal = [];
+      var writeCount = 0;
+
       var biquad;
+
+      var output = new Audio();
+
+      if ( typeof output.mozSetup === 'function' ) {
+        output.mozSetup(1, sampleRate, 1);
+      }
 
       var plotCoeffs = function() {
 	var b = [biquad.b0, biquad.b1, biquad.b2];
 	var a = [biquad.a0, biquad.a1, biquad.a2];
 	
 	response = DSP.mag2db(DSP.freqz(b, a));
+	//response = DSP.freqz(b, a);
       }
 
       var changeF0 = function() {
@@ -96,12 +106,33 @@
         biquad.setQ($('#q').slider('option', 'value'));
 	plotCoeffs();
       }
+
+      function audioWritten(event) {
+
+        var mozSignal = event.mozFrameBuffer;
+
+        // Convert mozSignal to mono native js array
+        signal = [];
+        for ( var i = 0, signalLength = mozSignal.length; i < signalLength / 2; i++ ) {
+          if ( mozSignal.item(2*i) == 0 ) {
+            break;
+          }
+          signal[i] = (mozSignal.item(2*i) + mozSignal.item(2*i+1)) / 2;
+        }
+        
+        // Apply the filter to the signal
+        signal = biquad.process(signal);
+
+        output.mozWriteAudio(0, []); // flush
+        output.mozWriteAudio(signal.length, signal);
+        writeCount++;
+      }
     </script>
     
     <script type="application/processing" target="#signal">
       void setup() {
         size(512, 200);
-        biquad = new Biquad(DSP.BPF_CONSTANT_SKIRT, sampleRate);
+        biquad = new Biquad(DSP.BPF_CONSTANT_PEAK, sampleRate);
         changeF0();
 	changeQ();
 
@@ -115,7 +146,7 @@
 
 	// Draw axes
 	float yMin = -120;
-	float yMax = 120;
+	float yMax = 12;
 	float yCenter = 0;
 	
 	float xMin = -PI;
@@ -149,8 +180,8 @@
     <p>Music: Delv-X: Megaman theme (cover)</p>
     <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio><br>
 
-    <div style="width: 620px;">
-      <div><canvas id="signal" width="512px" height="200px" style="float: left;"></canvas></div>
+    <div style="width: 100%;">
+      <div><canvas id="signal" width="50%" height="200px" style="float: left;"></canvas></div>
       
       <div class="control" style="float: right; height: 188px">
         <h3>Low Pass Filter</h3>

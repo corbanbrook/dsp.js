@@ -722,7 +722,7 @@ Biquad = function(type, sampleRate) {
 
   this.setQ = function(q) {
     this.parameterType = DSP.Q;
-    this.Q = q;
+    this.Q = Math.max(Math.min(q, 0.999), 0);
     this.recalculateCoefficients();
   }
 
@@ -734,7 +734,7 @@ Biquad = function(type, sampleRate) {
 
   this.setS = function(s) {
     this.parameterType = DSP.S;
-    this.S = Math.max(s, 0.0001);
+    this.S = Math.max(Math.min(s, 1.0), 0.0001);
     this.recalculateCoefficients();
   }  
 
@@ -935,7 +935,7 @@ DSP.mag2db = function(buffer) {
 
 DSP.freqz = function(b, a, w) {
   if (!w) {
-    w = Array(400);
+    w = Array(200);
     for (var i=0;i<w.length; i++) {
       w[i] = DSP.TWO_PI/w.length * i - Math.PI;
     }
