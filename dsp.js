@@ -880,41 +880,49 @@ Biquad = function(type, sampleRate) {
     this.a2a0 = this.a2/this.a0;
   }
 
-  this.process = function(buffer) {
+  this.process = function(buffer, len) {
       //y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
       //       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
 
+      if (!len) {
+	len = buffer.length;
+      }
+
       var output = Array(buffer.length);
       
-      for ( var i=0; i<buffer.length; i++ ) {
-	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
+      for ( var i=0; i<len; i++ ) {
+	output[2*i] = this.b0a0*buffer[2*i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
 	this.y_2_l = this.y_1_l;
-	this.y_1_l = output[i];
+	this.y_1_l = output[2*i];
 	this.x_2_l = this.x_1_l;
-	this.x_1_l = buffer[i];
+	this.x_1_l = buffer[2*i];
       }
 
       return output;
   }
 
-  this.processStereo = function(buffer) {
+  this.processStereo = function(buffer, len) {
       //y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
       //       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
 
+      if (!len) {
+	len = buffer.length;
+      }
+
       var output = Array(buffer.length);
       
-      for ( var i=0; i<buffer.length-1; i+=2 ) {
-	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
+      for ( var i=0; i<len; i++ ) {
+	output[2*i] = this.b0a0*buffer[2*i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
 	this.y_2_l = this.y_1_l;
-	this.y_1_l = output[i];
+	this.y_1_l = output[2*i];
 	this.x_2_l = this.x_1_l;
-	this.x_1_l = buffer[i];
+	this.x_1_l = buffer[2*i];
 
-	output[i+1] = this.b0a0*buffer[i+1] + this.b1a0*this.x_1_r + this.b2a0*this.x_2_r - this.a1a0*this.y_1_r - this.a2a0*this.y_2_r;
+	output[2*i+1] = this.b0a0*buffer[2*i+1] + this.b1a0*this.x_1_r + this.b2a0*this.x_2_r - this.a1a0*this.y_1_r - this.a2a0*this.y_2_r;
 	this.y_2_r = this.y_1_r;
-	this.y_1_r = output[i+1];
+	this.y_1_r = output[2*i+1];
 	this.x_2_r = this.x_1_r;
-	this.x_1_r = buffer[i+1];
+	this.x_1_r = buffer[2*i+1];
       }
 
       return output;
