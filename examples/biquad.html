@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- Load JQuery and JQuery-UI -->
+    <link type="text/css" href="css/hot-sneaks/jquery-ui-1.8.custom.css" rel="stylesheet" />  
+    <script type="text/javascript" src="js/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.8.custom.min.js"></script>
+    
+    <!-- Load Processing.js -->
+    <script language="javascript" src="js/processing.js"></script>
+    <script language="javascript" src="js/init.js"></script>
+
+    <!-- Load DSP.js -->
+    <script src="../dsp.js"></script>
+    <script>
+      $(function() {
+        $('#cutoff').slider({ orientation: 'vertical', range: 'min', min: 60, max: 5000, step: 1, value: 880, slide: changeFilter });
+        $('#res').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 20.0, value: 1.0, step: 0.01, slide: changeFilter });
+      });
+    </script>
+
+    <style type="text/css">
+      body, * {
+        font-family: Arial, sans-serif;
+      }
+      .control {
+        padding: 5px;
+        border: 1px outset #CCC;
+        background-color: #EEE;
+        float: left;
+        margin-right: 5px;
+      }
+      .control table td {
+        padding: 10px;
+        width: 20px;
+        color: #999;
+        font-size: 12px;
+      }
+      .control h3 {
+        margin: 0;
+        padding:0;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .control #debug {
+        border: 1px inset #ccc;
+        background-color: #FFF;
+        font-size: 12px;
+        width: 300px;
+        padding: 10px;
+      }
+      .slider {
+        margin-bottom: 16px;
+        width: 8px;
+      }
+      
+      .ui-slider .ui-slider-handle {
+        width: 8px;
+        margin-left: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Setup shared variables
+      var sampleRate = 44100;
+      
+      var response = [];
+      var biquad;
+
+      var changeFilter = function() {
+        biquad.setF0($('#cutoff').slider('option', 'value'));
+	biquad.setQ($('#res').slider('option', 'value'));
+
+	var b = [biquad.b0, biquad.b1, biquad.b2];
+	var a = [biquad.a0, biquad.a1, biquad.a2];
+	
+	response = mag2db(freqz(b, a, []));
+      }
+    </script>
+    
+    <script type="application/processing" target="#signal">
+      void setup() {
+        size(512, 200);
+        biquad = new Biquad(DSP.LPF, sampleRate);
+        biquad.setF0($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
+	changeFilter();
+
+        stroke(255);
+        strokeWeight(1);
+        frameRate(20);
+      }
+      
+      void draw() {
+        background(100, 100, 200);
+	beginShape();
+	vertex(0, 0);
+        for (int i = 0; i < response.length; i++) {
+          vertex(map(i, 0, response.length, 0, width), map(response[i], -120, 0, height, 0));
+        }
+	vertex(width, 0);
+	endShape();
+      }
+    </script>
+    
+    <h1>Audio Filter</h1>
+    <p>Applies a Low pass filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
+    <p>The low pass filter acts as a gate, only letting frequencies below the cut off value through.</p> 
+    
+    <p>The <b>F</b> slider controls the cut off frequency, between 0 and 22050 Hz.</p>
+    <p>The <b>Q</b>
+    slider controls the resonance drive.</p>
+    <p>A low frequency cutoff and strong resonance can give an acidy or dampened underwater effect.</p>
+    <p>(Be careful! Adjust your volume! Certain slider combinations can give off loud undesired schreeching noises!)</p>
+    <p>Music: Delv-X: Megaman theme (cover)</p>
+    <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio><br>
+
+    <div style="width: 620px;">
+      <div><canvas id="signal" width="512px" height="200px" style="float: left;"></canvas></div>
+      
+      <div class="control" style="float: right; height: 188px">
+        <h3>Low Pass Filter</h3>
+        <table>
+          <tr>
+            <td><div id="cutoff" class="slider"></div>F</td>
+            <td><div id="res" class="slider"></div>Q</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>

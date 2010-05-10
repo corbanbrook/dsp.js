@@ -684,7 +684,7 @@ Biquad = function(type, sampleRate) {
   this.a1a0 = this.a1 / this.a0;
   this.a2a0 = this.a2 / this.a0;
 
-  this.f0 = f0; // "wherever it's happenin', man."  Center Frequency or
+  this.f0 = 3000; // "wherever it's happenin', man."  Center Frequency or
 		// Corner Frequency, or shelf midpoint frequency, depending
 		// on which filter type.  The "significant frequency".
 
@@ -707,44 +707,44 @@ Biquad = function(type, sampleRate) {
 
   this.setSampleRate = function(rate) {
     this.Fs = rate;
-    recalculateCoefficients();
+    this.recalculateCoefficients();
   }
 
   this.setQ = function(q) {
     this.parameterType = DSP.Q;
     this.Q = q;
-    recalculateCoefficients();
+    this.recalculateCoefficients();
   }
 
   this.setBW = function(bw) {
     this.parameterType = DSP.BW;
     this.BW = bw;
-    recalculateCoefficients();
-  }  
+    this.recalculateCoefficients();
+  } 
 
   this.setS = function(s) {
     this.parameterType = DSP.S;
     this.S = s;
-    recalculateCoefficients();
+    this.recalculateCoefficients();
   }  
 
   this.setF0 = function(freq) {
     this.f0 = freq;
-    recalculateCoefficients();
+    this.recalculateCoefficients();
   }  
   
   this.setDbGain = function(g) {
     this.dBgain = g;
-    recalculateCoefficients();
+    this.recalculateCoefficients();
   }
 
-  this.recalculateCoefficients() {
+  this.recalculateCoefficients = function() {
     var A;
     if (type == DSP.PEAKING || type == DSP.SHELVING) {
       A = 10^(dBgain/40);  // for peaking and shelving EQ filters only
 
     } else {
-      A  = sqrt( 10^(dBgain/20) );
+      A  = Math.sqrt( 10^(this.dBgain/20) );
     }
     
 
@@ -779,13 +779,13 @@ Biquad = function(type, sampleRate) {
 
     switch (this.type) {
       case DSP.LPF:       // H(s) = 1 / (s^2 + s/Q + 1)
-	this.b0 =  (1 - cosw0)/2;
+        this.b0 =  (1 - cosw0)/2;
         this.b1 =   1 - cosw0;
         this.b2 =  (1 - cosw0)/2;
         this.a0 =   1 + alpha;
         this.a1 =  -2 * cosw0;
         this.a2 =   1 - alpha;
-	break;
+        break;
 
       case DSP.HPF:       // H(s) = s^2 / (s^2 + s/Q + 1)
         this.b0 =  (1 + cosw0)/2;
@@ -794,79 +794,74 @@ Biquad = function(type, sampleRate) {
         this.a0 =   1 + alpha;
         this.a1 =  -2 * cosw0;
         this.a2 =   1 - alpha;
-	break;
+        break;
 
       case DSP.BPF_CONSTANT_SKIRT:       // H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
-            this.b0 =   sinw0/2;
-            this.b1 =   0;
-            this.b2 =  -sinw0/2;
-            this.a0 =   1 + alpha;
-            this.a1 =  -2*cosw0;
-            this.a2 =   1 - alpha;
-	    break;
+        this.b0 =   sinw0/2;
+        this.b1 =   0;
+        this.b2 =  -sinw0/2;
+        this.a0 =   1 + alpha;
+        this.a1 =  -2*cosw0;
+        this.a2 =   1 - alpha;
+	break;
 
       case DSP.BPF_CONSTANT_PEAK:       // H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
-            this.b0 =   alpha;
-            this.b1 =   0;
-            this.b2 =  -alpha;
-            this.a0 =   1 + alpha;
-            this.a1 =  -2*cosw0;
-            this.a2 =   1 - alpha;
-	    break;
-
+        this.b0 =   alpha;
+        this.b1 =   0;
+        this.b2 =  -alpha;
+        this.a0 =   1 + alpha;
+        this.a1 =  -2*cosw0;
+        this.a2 =   1 - alpha;
+	break;
 
       case DSP.NOTCH:     // H(s) = (s^2 + 1) / (s^2 + s/Q + 1)
-            this.b0 =   1;
-            this.b1 =  -2*cosw0;
-            this.b2 =   1;
-            this.a0 =   1 + alpha;
-            this.a1 =  -2*cosw0;
-            this.a2 =   1 - alpha;
-	    break;
-
+        this.b0 =   1;
+        this.b1 =  -2*cosw0;
+        this.b2 =   1;
+        this.a0 =   1 + alpha;
+        this.a1 =  -2*cosw0;
+        this.a2 =   1 - alpha;
+	break;
 
       case DSP.APF:       // H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
-            this.b0 =   1 - alpha;
-            this.b1 =  -2*cosw0;
-            this.b2 =   1 + alpha;
-            this.a0 =   1 + alpha;
-            this.a1 =  -2*cosw0;
-            this.a2 =   1 - alpha;
-	    break;
-
+        this.b0 =   1 - alpha;
+        this.b1 =  -2*cosw0;
+        this.b2 =   1 + alpha;
+        this.a0 =   1 + alpha;
+        this.a1 =  -2*cosw0;
+        this.a2 =   1 - alpha;
+	break;
 
       case DSP.PEAKING_EQ:  // H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
-            this.b0 =   1 + alpha*A;
-            this.b1 =  -2*cosw0;
-            this.b2 =   1 - alpha*A;
-            this.a0 =   1 + alpha/A;
-            this.a1 =  -2*cosw0;
-            this.a2 =   1 - alpha/A;
-	    break;
-
+        this.b0 =   1 + alpha*A;
+        this.b1 =  -2*cosw0;
+        this.b2 =   1 - alpha*A;
+        this.a0 =   1 + alpha/A;
+        this.a1 =  -2*cosw0;
+        this.a2 =   1 - alpha/A;
+	break;
 
       case DSP.LOW_SHELF:   // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
-	    var coeff = sinw0 * sqrt( (A^2 + 1)*(1/S - 1) + 2*A );
-            this.b0 =    A*( (A+1) - (A-1)*cosw0 + coeff );
-            this.b1 =  2*A*( (A-1) - (A+1)*cosw0                   );
-            this.b2 =    A*( (A+1) - (A-1)*cosw0 - coeff );
-            this.a0 =        (A+1) + (A-1)*cosw0 + coeff;
-            this.a1 =   -2*( (A-1) + (A+1)*cosw0                   );
-            this.a2 =        (A+1) + (A-1)*cosw0 - coeff;
-	    break;
-
+	var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/S - 1) + 2*A );
+        this.b0 =    A*( (A+1) - (A-1)*cosw0 + coeff );
+        this.b1 =  2*A*( (A-1) - (A+1)*cosw0                   );
+        this.b2 =    A*( (A+1) - (A-1)*cosw0 - coeff );
+        this.a0 =        (A+1) + (A-1)*cosw0 + coeff;
+        this.a1 =   -2*( (A-1) + (A+1)*cosw0                   );
+        this.a2 =        (A+1) + (A-1)*cosw0 - coeff;
+	break;
 
       case DSP.HIGH_SHELF:   // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
-	    var coeff = sinw0 * sqrt( (A^2 + 1)*(1/S - 1) + 2*A );
-            this.b0 =    A*( (A+1) + (A-1)*cosw0 + coeff );
-            this.b1 = -2*A*( (A-1) + (A+1)*cosw0                   );
-            this.b2 =    A*( (A+1) + (A-1)*cosw0 - coeff );
-            this.a0 =        (A+1) - (A-1)*cosw0 + coeff;
-            this.a1 =    2*( (A-1) - (A+1)*cosw0                   );
-            this.a2 =        (A+1) - (A-1)*cosw0 - coeff;
-	    break;
+	var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/S - 1) + 2*A );
+        this.b0 =    A*( (A+1) + (A-1)*cosw0 + coeff );
+        this.b1 = -2*A*( (A-1) + (A+1)*cosw0                   );
+        this.b2 =    A*( (A+1) + (A-1)*cosw0 - coeff );
+        this.a0 =        (A+1) - (A-1)*cosw0 + coeff;
+        this.a1 =    2*( (A-1) - (A+1)*cosw0                   );
+        this.a2 =        (A+1) - (A-1)*cosw0 - coeff;
+	break;
     }
-
+    
     this.b0a0 = this.b0/this.a0;
     this.b1a0 = this.b1/this.a0;
     this.b2a0 = this.b2/this.a0;
@@ -881,7 +876,7 @@ Biquad = function(type, sampleRate) {
       var output = Array(buffer.length);
       
       for ( var i=0; i<buffer.length; i++ ) {
-	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l:
+	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
 	this.y_2_l = this.y_1_l;
 	this.y_1_l = output[i];
 	this.x_2_l = this.x_1_l;
@@ -898,13 +893,13 @@ Biquad = function(type, sampleRate) {
       var output = Array(buffer.length);
       
       for ( var i=0; i<buffer.length-1; i+=2 ) {
-	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l:
+	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
 	this.y_2_l = this.y_1_l;
 	this.y_1_l = output[i];
 	this.x_2_l = this.x_1_l;
 	this.x_1_l = buffer[i];
 
-	output[i+1] = this.b0a0*buffer[i+1] + this.b1a0*this.x_1_r + this.b2a0*this.x_2_r - this.a1a0*this.y_1_r - this.a2a0*this.y_2_r:
+	output[i+1] = this.b0a0*buffer[i+1] + this.b1a0*this.x_1_r + this.b2a0*this.x_2_r - this.a1a0*this.y_1_r - this.a2a0*this.y_2_r;
 	this.y_2_r = this.y_1_r;
 	this.y_1_r = output[i+1];
 	this.x_2_r = this.x_1_r;
@@ -913,4 +908,43 @@ Biquad = function(type, sampleRate) {
 
       return output;
   }
-}
+};
+
+DSP.prototype.mag2db = function(buffer) {
+  var minDb = -120;
+  var minMag = Math.pow(minDb / 20.0, 10.0);
+
+  var result = Array(buffer.length);
+  for (var i=0; i<buffer.length; i++) {
+    result[i] = 20.0*Math.log(Math.max(buffer[i], minMag));
+  }
+  return result;
+};
+
+DSP.prototype.freqz = function(b, a, omegas) {
+  var w = omegas;
+  if (arguments.length > 2) {
+    w = Array(100);
+    for (var i=0;i<w.length; i++) {
+      w[i] = DSP.TWO_PI/w.length * i - Math.PI;
+    }
+  }
+
+  var result = Array(w.length);
+  
+  for (var i=0; i<w.length; i++) {
+    var numerator = {real:0.0, imag:0.0};
+    for (var j=0; j<b.length; j++) {
+      numerator.real += b[j] * Math.cos(-j*w[i]);
+      numerator.imag += b[j] * Math.sin(-j*w[i]);
+    }
+
+    var denominator = {real:0.0, imag:0.0};
+    for (var j=0; j<a.length; j++) {
+      denominator.real += a[j] * Math.cos(-j*w[i]);
+      denominator.imag += a[j] * Math.sin(-j*w[i]);
+    }
+  
+    result[i] =  Math.sqrt(Math.pow(numerator.real, 2) + Math.pow(numerator.imag, 2)) / Math.sqrt(Math.pow(denominator.real, 2) + Math.pow(denominator.imag, 2));
+  }
+};
