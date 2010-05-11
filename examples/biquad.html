@@ -18,12 +18,50 @@
         $('#q').slider({ orientation: 'vertical', range: 'min', min: 0.0, max: 1.0, value: 1.0, step: 0.001, slide: changeQ });
         $('#bw').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 10.0, value: 1.0, step: 0.001, slide: changeBW });
         $('#s').slider({ orientation: 'vertical', range: 'min', min: 0.0, max: 1.0, value: 1.0, step: 0.001, slide: changeS });
+	$('#filtertype').buttonset();
+	$('#lpf').button().click(function () {
+				    biquad.setFilterType(DSP.LPF);
+				    plotCoeffs();
+				 });
+	$('#hpf').button().click(function () {
+				    biquad.setFilterType(DSP.HPF);
+				    plotCoeffs();
+				 });
+	$('#bpf_constant_skirt').button().click(function () {
+				    biquad.setFilterType(DSP.BPF_CONSTANT_SKIRT);
+				    plotCoeffs();
+				 });
+	$('#bpf_constant_peak').button().click(function () {
+				    biquad.setFilterType(DSP.BPF_CONSTANT_PEAK);
+				    plotCoeffs();
+				 });
+	$('#notch').button().click(function () {
+				    biquad.setFilterType(DSP.NOTCH);
+				    plotCoeffs();
+				 });
+	$('#apf').button().click(function () {
+				    biquad.setFilterType(DSP.APF);
+				    plotCoeffs();
+				 });
+	$('#peaking_eq').button().click(function () {
+				    biquad.setFilterType(DSP.PEAKING_EQ);
+				    plotCoeffs();
+				 });
+	$('#low_shelf').button().click(function () {
+				    biquad.setFilterType(DSP.LOW_SHELF);
+				    plotCoeffs();
+				 });
+	$('#high_shelf').button().click(function () {
+				    biquad.setFilterType(DSP.HIGH_SHELF);
+				    plotCoeffs();
+				 });
       });
     </script>
 
     <style type="text/css">
       body, * {
         font-family: Arial, sans-serif;
+	font-size: xx-small;
       }
       .control {
         padding: 5px;
@@ -83,7 +121,12 @@
 	var b = [biquad.b0, biquad.b1, biquad.b2];
 	var a = [biquad.a0, biquad.a1, biquad.a2];
 	
-	response = DSP.mag2db(DSP.freqz(b, a));
+	w = Array(200);
+	for (var i=0;i<w.length; i++) {
+	  w[i] = Math.PI/w.length * i;
+	}
+	
+	response = DSP.mag2db(DSP.freqz(b, a, w));
 	//response = DSP.freqz(b, a);
       }
 
@@ -128,7 +171,7 @@
     
     <script type="application/processing" target="#signal">
       void setup() {
-        size(512, 200);
+        size(300, 200);
         biquad = new Biquad(DSP.BPF_CONSTANT_PEAK, sampleRate);
         changeF0();
 	changeQ();
@@ -143,10 +186,10 @@
 
 	// Draw axes
 	float yMin = -120;
-	float yMax = 12;
+	float yMax = 60;
 	float yCenter = 0;
 	
-	float xMin = -PI;
+	float xMin = 0;
 	float xMax = PI;
 	float xCenter = 0;
 
@@ -166,22 +209,30 @@
     </script>
     
     <h1>Audio Filter</h1>
-    <p>Applies a Low pass filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
-    <p>The low pass filter acts as a gate, only letting frequencies below the cut off value through.</p> 
-    
-    <p>The <b>F</b> slider controls the cut off frequency, between 0 and 22050 Hz.</p>
-    <p>The <b>Q</b>
-    slider controls the resonance drive.</p>
-    <p>A low frequency cutoff and strong resonance can give an acidy or dampened underwater effect.</p>
-    <p>(Be careful! Adjust your volume! Certain slider combinations can give off loud undesired schreeching noises!)</p>
-    <p>Music: Delv-X: Megaman theme (cover)</p>
-    <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio><br>
+    <p>Applies a Biquad filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
+
+    <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 100%;"></audio><br>
 
     <div style="width: 100%;">
       <div><canvas id="signal" width="50%" height="200px" style="float: left;"></canvas></div>
       
       <div class="control" style="float: right; height: 188px">
-        <h3>Low Pass Filter</h3>
+        <h3>Biquad Filter</h3>
+	<form>
+	  <span id="filtertype">
+		<p>
+		<input type="radio" id="lpf" name="filtertype" checked="checked" /><label for="lpf">LPF</label>
+		<input type="radio" id="hpf" name="filtertype" /><label for="hpf">HPF</label>
+		<input type="radio" id="bpf_constant_skirt" name="filtertype" /><label for="bpf_constant_skirt">BPF_CONSTANT_SKIRT</label>
+		<input type="radio" id="bpf_constant_peak" name="filtertype" /><label for="bpf_constant_peak">BPF_CONSTANT_PEAK</label>
+		<input type="radio" id="notch" name="filtertype" /><label for="notch">NOTCH</label>
+		<input type="radio" id="apf" name="filtertype" /><label for="apf">APF</label>
+		<input type="radio" id="peaking_eq" name="filtertype" /><label for="peaking_eq">PEAKING_EQ</label>
+		<input type="radio" id="low_shelf" name="filtertype" /><label for="low_shelf">LOW_SHELF</label>
+		<input type="radio" id="high_shelf" name="filtertype" /><label for="high_shelf">HIGH_SHELF</label>
+		</p>
+	  </span>
+	</form>
         <table>
           <tr>
             <td><div id="freq" class="slider"></div>freq</td>

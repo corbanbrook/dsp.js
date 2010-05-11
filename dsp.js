@@ -715,6 +715,11 @@ Biquad = function(type, sampleRate) {
 	       // dB/octave, remains proportional to S for all other values for a
 	       // fixed f0/Fs and dBgain.
 
+  this.setFilterType = function(type) {
+    this.type = type;
+    this.recalculateCoefficients();
+  }
+
   this.setSampleRate = function(rate) {
     this.Fs = rate;
     this.recalculateCoefficients();
