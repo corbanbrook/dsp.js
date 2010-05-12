@@ -80,19 +80,16 @@
       var changeFilter = function() {
         lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
       }
-      
-      function audioWritten(event) {
 
-        var mozSignal = event.mozFrameBuffer;
+      function audioWritten(event) {
+        var mozSignal = event.mozFrameBuffer.getAudioData().data;
 
         // Convert mozSignal to mono native js array
         signal = [];
-        for ( var i = 0, signalLength = mozSignal.length; i < signalLength / 2; i++ ) {
-          if ( mozSignal.item(2*i) == 0 ) {
-            break;
-          }
-          signal[i] = (mozSignal.item(2*i) + mozSignal.item(2*i+1)) / 2;
+        for ( var i = 0; i < mozSignal.length / 2; i++ ) {
+          signal[i] = (mozSignal[2*i] + mozSignal[2*i+1]) / 2;
         }
+
         
         // Apply the filter to the signal
         lp12.process(signal);

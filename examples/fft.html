@@ -10,39 +10,30 @@
     </style>
     
     <script>
-    var spectrum = [];
-    var signal = [];
+    var signal = new Float32Array(2048);
     var peak = [];
     var bufferSize = 2048;
     
     var fft = new FFT(bufferSize, 44100);
 
     function audioWritten(event) {
-      var mozSignal = event.mozFrameBuffer;
+      var mozSignal = event.mozFrameBuffer.getAudioData().data;
       
-      if ( mozSignal.length == 4096 ) { 
-        // Problem: The audioWritten buffer should be 4096 samples, 2048 per channel. 
-        // FFT running in js can't process 2048 samples quick enough and it gets quite laggy 
-        // so we only look at the first 1024 samples and scrap the rest.
-        for ( var i = 0; i < mozSignal.length/2; i++ ) {
-          // Assuming interlaced stereo channels, need to split and merge into a stero-mix mono signal
-          signal[i] = (mozSignal.item(2*i) + mozSignal.item(2*i+1)) / 2; 
-        }
+      for ( var i = 0; i < mozSignal.length / 2; i++ ) {
+        // Assuming interlaced stereo channels, need to split and merge into a stero-mix mono signal
+        signal[i] = (mozSignal[2*i] + mozSignal[2*i+1]) / 2; 
+      }
+      
+      fft.forward(signal);
+      
+      // calculate peak values
+      for ( var i = 0; i < bufferSize; i++ ) {
+        fft.spectrum[i] *= -1 * Math.log((signal.length/2 - i) * (0.5/signal.length/2)) * 2048; // equalize, attenuates low freqs and boosts highs
         
-        //var complexValues = calculateFFT2(signal);
-        
-        fft.forward(signal);
-        
-        // calculate peak values
-        
-        for ( var i = 0; i < fft.spectrum.length; i++ ) {
-          fft.spectrum[i] *= -1 * Math.log((signal.length/2 - i) * (0.5/signal.length/2)) * 2048; // equalize, attenuates low freqs and boosts highs
-          
-          if ( typeof(peak[i]) == 'undefined' || peak[i] < fft.spectrum[i] ) {
-            peak[i] = fft.spectrum[i];
-          } else {
-            peak[i] *= 0.99; // peak slowly falls until a new peak is found
-          }
+        if ( typeof(peak[i]) == 'undefined' || peak[i] < fft.spectrum[i] ) {
+          peak[i] = fft.spectrum[i];
+        } else {
+          peak[i] *= 0.99; // peak slowly falls until a new peak is found
         }
       }
     }

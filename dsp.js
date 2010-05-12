@@ -8,6 +8,12 @@
 
 DSP = function() {};
 
+DSP.invert = function(buffer) {
+  for ( var i = 0; i < buffer.length; i++ ) {
+    buffer[i] *= -1;
+  }
+};
+
 // Waveforms
 DSP.SINE     = 1;
 DSP.TRIANGLE = 2;
@@ -78,12 +84,21 @@ FFT = function(bufferSize, sampleRate) {
   this.bufferSize = bufferSize;
   this.sampleRate = sampleRate;
 
-  this.spectrum      = new Array(bufferSize/2);
-  this.complexValues = new Array(bufferSize);
-    
-  this.reverseTable  = new Array(bufferSize);
-  this.reverseTable[0] = 0;
+  this.spectrum         = new Array(bufferSize/2);
+  this.real             = new Array(bufferSize);
+  this.imag             = new Array(bufferSize);
 
+  this.reverseTable     = new Array(bufferSize);
+  this.reverseTable[0]  = 0;
+
+  /*
+  this.spectrum         = new Float64Array(bufferSize/2);
+  this.real             = new Float64Array(bufferSize);
+  this.imag             = new Float64Array(bufferSize);
+    
+  this.reverseTable     = new Uint32Array(bufferSize);
+  this.reverseTable[0]  = 0;
+  */
   var limit = 1;
   var bit = bufferSize >> 1;
 
@@ -95,13 +110,21 @@ FFT = function(bufferSize, sampleRate) {
     limit = limit << 1;
     bit = bit >> 1;
   }
-    
+
   this.sinTable = new Array(bufferSize);
   this.cosTable = new Array(bufferSize);
-  
+
+  /*
+  this.sinTable = new Float64Array(bufferSize);
+  this.cosTable = new Float64Array(bufferSize);
+  */
+  var sin = Math.sin;
+  var cos = Math.cos;
+  var PI = Math.PI;
+
   for ( var i = 0; i < bufferSize; i++ ) {
-    this.sinTable[i] = Math.sin(-Math.PI/i);
-    this.cosTable[i] = Math.cos(-Math.PI/i);
+    this.sinTable[i] = sin(-PI/i);
+    this.cosTable[i] = cos(-PI/i);
   }
 };
 
@@ -110,7 +133,9 @@ FFT.prototype.forward = function(buffer) {
   if ( this.bufferSize != buffer.length ) { throw "Supplied buffer is not the same size as defined FFT. FFT Size: " + this.bufferSize + " Buffer Size: " + buffer.length; }
 
   for ( var i = 0; i < buffer.length; i++ ) {
-    this.complexValues[i] = {real: buffer[this.reverseTable[i]], imag: 0.0};
+    //this.complexValues[i] = {real: buffer[this.reverseTable[i]], imag: 0.0};
+    this.real[i] = buffer[this.reverseTable[i]];
+    this.imag[i] = 0.0;
   }
 
   var halfSize = 1;
@@ -126,13 +151,13 @@ FFT.prototype.forward = function(buffer) {
 
       while ( i < buffer.length ) {
         var off = i + halfSize;
-        var tr = (currentPhaseShiftReal * this.complexValues[off].real) - (currentPhaseShiftImag * this.complexValues[off].imag);
-        var ti = (currentPhaseShiftReal * this.complexValues[off].imag) + (currentPhaseShiftImag * this.complexValues[off].real);
+        var tr = (currentPhaseShiftReal * this.real[off]) - (currentPhaseShiftImag * this.imag[off]);
+        var ti = (currentPhaseShiftReal * this.imag[off]) + (currentPhaseShiftImag * this.real[off]);
 
-        this.complexValues[off].real = this.complexValues[i].real - tr;
-        this.complexValues[off].imag = this.complexValues[i].imag - ti;
-        this.complexValues[i].real += tr;
-        this.complexValues[i].imag += ti;
+        this.real[off] = this.real[i] - tr;
+        this.imag[off] = this.imag[i] - ti;
+        this.real[i] += tr;
+        this.imag[i] += ti;
 
         i += halfSize << 1;
       }
@@ -145,8 +170,10 @@ FFT.prototype.forward = function(buffer) {
     halfSize = halfSize << 1;
   }
 
+  var sqrt = Math.sqrt;
+
   for ( var i = 0; i < this.bufferSize/2; i++ ) {
-    this.spectrum[i] = 2 * Math.sqrt(Math.pow(this.complexValues[i].real, 2) + Math.pow(this.complexValues[i].imag, 2)) / this.bufferSize;
+    this.spectrum[i] = 2 * sqrt(this.real[i] * this.real[i] + this.imag[i] * this.imag[i]) / this.bufferSize;
   }
   
   return this.spectrum;
