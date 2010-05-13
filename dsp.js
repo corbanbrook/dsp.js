@@ -698,7 +698,7 @@ Biquad = function(type, sampleRate) {
 		// Corner Frequency, or shelf midpoint frequency, depending
 		// on which filter type.  The "significant frequency".
 
-  this.dBgain = -12; // used only for peaking and shelving filters
+  this.dBgain = 12; // used only for peaking and shelving filters
 
   this.Q = 1;  // the EE kind of definition, except for peakingEQ in which A*Q is
 	       // the classic EE Q.  That adjustment in definition was made so that
@@ -756,12 +756,10 @@ Biquad = function(type, sampleRate) {
   this.recalculateCoefficients = function() {
     var A;
     if (type == DSP.PEAKING_EQ || type == DSP.LOW_SHELF || type == DSP.HIGH_SHELF ) {
-      A = 10^(this.dBgain/40);  // for peaking and shelving EQ filters only
-
+      A = Math.pow(10, (this.dBgain/40));  // for peaking and shelving EQ filters only
     } else {
-      A  = Math.sqrt( 10^(this.dBgain/20) );
+      A  = Math.sqrt( Math.pow(10, (this.dBgain/20)) );    
     }
-    
 
     var w0 = DSP.TWO_PI * this.f0 / this.Fs;
 
@@ -896,11 +894,11 @@ Biquad = function(type, sampleRate) {
       var output = Array(buffer.length);
       
       for ( var i=0; i<len; i++ ) {
-	output[2*i] = this.b0a0*buffer[2*i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
+	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
 	this.y_2_l = this.y_1_l;
-	this.y_1_l = output[2*i];
+	this.y_1_l = output[i];
 	this.x_2_l = this.x_1_l;
-	this.x_1_l = buffer[2*i];
+	this.x_1_l = buffer[i];
       }
 
       return output;

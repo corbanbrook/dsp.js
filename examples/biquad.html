@@ -18,50 +18,17 @@
         $('#q').slider({ orientation: 'vertical', range: 'min', min: 0.0, max: 1.0, value: 1.0, step: 0.001, slide: changeQ });
         $('#bw').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 10.0, value: 1.0, step: 0.001, slide: changeBW });
         $('#s').slider({ orientation: 'vertical', range: 'min', min: 0.0, max: 1.0, value: 1.0, step: 0.001, slide: changeS });
+        $('#dbgain').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 30.0, value: 12.0, step: 1, slide: changeDbGain });
 	$('#filtertype').buttonset();
-	$('#lpf').button().click(function () {
-				    biquad.setFilterType(DSP.LPF);
-				    plotCoeffs();
-				 });
-	$('#hpf').button().click(function () {
-				    biquad.setFilterType(DSP.HPF);
-				    plotCoeffs();
-				 });
-	$('#bpf_constant_skirt').button().click(function () {
-				    biquad.setFilterType(DSP.BPF_CONSTANT_SKIRT);
-				    plotCoeffs();
-				 });
-	$('#bpf_constant_peak').button().click(function () {
-				    biquad.setFilterType(DSP.BPF_CONSTANT_PEAK);
-				    plotCoeffs();
-				 });
-	$('#notch').button().click(function () {
-				    biquad.setFilterType(DSP.NOTCH);
-				    plotCoeffs();
-				 });
-	$('#apf').button().click(function () {
-				    biquad.setFilterType(DSP.APF);
-				    plotCoeffs();
-				 });
-	$('#peaking_eq').button().click(function () {
-				    biquad.setFilterType(DSP.PEAKING_EQ);
-				    plotCoeffs();
-				 });
-	$('#low_shelf').button().click(function () {
-				    biquad.setFilterType(DSP.LOW_SHELF);
-				    plotCoeffs();
-				 });
-	$('#high_shelf').button().click(function () {
-				    biquad.setFilterType(DSP.HIGH_SHELF);
-				    plotCoeffs();
-				 });
+	$('#filtertype > input').each(function() { 
+					 $(this).button().click( changeFilterType );
+				      });
       });
     </script>
 
     <style type="text/css">
       body, * {
         font-family: Arial, sans-serif;
-	font-size: xx-small;
       }
       .control {
         padding: 5px;
@@ -92,6 +59,10 @@
       .slider {
         margin-bottom: 16px;
         width: 8px;
+      }
+
+      .ui-button {
+        font-size: xx-small;
       }
       
       .ui-slider .ui-slider-handle {
@@ -130,6 +101,11 @@
 	//response = DSP.freqz(b, a);
       }
 
+      var changeFilterType = function() {
+	biquad.setFilterType(DSP[$('#filtertype>input:checked').next().text()]);
+	plotCoeffs();
+      }
+
       var changeF0 = function() {
 	biquad.setF0($('#freq').slider('option', 'value'));
 	plotCoeffs();
@@ -150,18 +126,27 @@
 	plotCoeffs();
       }
 
+      var changeDbGain = function() {
+        biquad.setDbGain($('#dbgain').slider('option', 'value'));
+	plotCoeffs();
+      }
+
       function audioWritten(event) {
 	
         var mozSignal = event.mozFrameBuffer;
+	var signalLength = mozSignal.length;
 
         // Convert mozSignal to mono native js array
         signal = [];
-        for ( var i = 0, signalLength = mozSignal.length; i < signalLength / 2; i++ ) {
+        for ( var i = 0; i < signalLength / 2; i++ ) {
+          if ( mozSignal.item(2*i) == 0 ) {
+            break;
+          }
           signal[i] = (mozSignal.item(2*i) + mozSignal.item(2*i+1)) / 2;
         }
         
         // Apply the filter to the signal
-        signal = biquad.process(signal, mozSignal.length/2);
+        signal = biquad.process(signal);
 
         output.mozWriteAudio(0, []); // flush
         output.mozWriteAudio(signal.length, signal);
@@ -173,8 +158,10 @@
       void setup() {
         size(300, 200);
         biquad = new Biquad(DSP.BPF_CONSTANT_PEAK, sampleRate);
+	changeFilterType();
         changeF0();
 	changeQ();
+	changeDbGain();
 
         stroke(255);
         strokeWeight(1);
@@ -208,8 +195,11 @@
       }
     </script>
     
-    <h1>Audio Filter</h1>
+    <h1>Biquad Filter</h1>
+    <h3>by <a href="http://www.ricardmarxer.com/blog">Ricard Marxer</a></h3>
     <p>Applies a Biquad filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
+    <p>The filter implementation will become part of the <a href="https://wiki.mozilla.org/Audio_Data_API_JS_Library">dsp.js</a> library.</p> 
+    <p>You will need a recent build of Mozilla Firefox with the Audio API to hear the filtered version.</p>
 
     <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 100%;"></audio><br>
 
@@ -220,7 +210,6 @@
         <h3>Biquad Filter</h3>
 	<form>
 	  <span id="filtertype">
-		<p>
 		<input type="radio" id="lpf" name="filtertype" checked="checked" /><label for="lpf">LPF</label>
 		<input type="radio" id="hpf" name="filtertype" /><label for="hpf">HPF</label>
 		<input type="radio" id="bpf_constant_skirt" name="filtertype" /><label for="bpf_constant_skirt">BPF_CONSTANT_SKIRT</label>
@@ -230,7 +219,6 @@
 		<input type="radio" id="peaking_eq" name="filtertype" /><label for="peaking_eq">PEAKING_EQ</label>
 		<input type="radio" id="low_shelf" name="filtertype" /><label for="low_shelf">LOW_SHELF</label>
 		<input type="radio" id="high_shelf" name="filtertype" /><label for="high_shelf">HIGH_SHELF</label>
-		</p>
 	  </span>
 	</form>
         <table>
@@ -239,6 +227,7 @@
             <td><div id="q" class="slider"></div>Q</td>
             <td><div id="bw" class="slider"></div>BW</td>
             <td><div id="s" class="slider"></div>S</td>
+            <td><div id="dbgain" class="slider"></div>dBgain</td>
           </tr>
         </table>
       </div>
