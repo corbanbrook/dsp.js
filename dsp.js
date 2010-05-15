@@ -727,7 +727,7 @@ Biquad = function(type, sampleRate) {
 
   this.setQ = function(q) {
     this.parameterType = DSP.Q;
-    this.Q = Math.max(Math.min(q, 0.999), 0);
+    this.Q = Math.max(Math.min(q, 115.0), 0.001);
     this.recalculateCoefficients();
   }
 
@@ -739,7 +739,7 @@ Biquad = function(type, sampleRate) {
 
   this.setS = function(s) {
     this.parameterType = DSP.S;
-    this.S = Math.max(Math.min(s, 1.0), 0.0001);
+    this.S = Math.max(Math.min(s, 5.0), 0.0001);
     this.recalculateCoefficients();
   }  
 
