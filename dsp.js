@@ -889,6 +889,12 @@ Biquad = function(type, sampleRate) {
 	       // dB/octave, remains proportional to S for all other values for a
 	       // fixed f0/Fs and dBgain.
 
+  this.coefficients = function() {
+    var b = [this.b0, this.b1, this.b2];
+    var a = [this.a0, this.a1, this.a2];
+    return {b: b, a:a};
+  }
+
   this.setFilterType = function(type) {
     this.type = type;
     this.recalculateCoefficients();
@@ -1175,3 +1181,75 @@ DSP.freqz = function(b, a, w) {
   return result;
 };
 
+// Implementation of a graphic equalizer with a configurable bands-per-octave
+// and minimum and maximum frequencies
+GraphicalEq = function(sampleRate) {
+  this.FS = sampleRate;
+  this.minFreq = 40.0;
+  this.maxFreq = 16000.0;
+
+  this.bandsPerOctave = 2.0;
+
+  this.filters = []
+
+  this.recalculateFilters = function() {
+    var bandCount = Math.round(Math.log(this.maxFreq/this.minFreq) * this.bandsPerOctave/ Math.LN2);
+
+    this.filters = [];
+    for (var i=0; i<bandCount; i++) {
+      var freq = this.minFreq*(Math.pow(2, i/bpo));
+      var filter = Biquad(DSP.PEAKING_EQ, this.FS);
+      filter.setDbGain(0);
+      filter.setBW(1/this.bandsPerOctave);
+      this.filters[i] = filter;
+    }
+  }
+
+  this.setMinimumFrequency = function(freq) {
+    this.minFreq = freq;
+    recalculateFilters();
+  }
+
+  this.setMaximumFrequency = function(freq) {
+    this.maxFreq = freq;
+    recalculateFilters();
+  }
+
+  this.setBandsPerOctave = function(bands) {
+    this.bandsPerOctave = bands;
+    recalculateFilters();
+  }
+
+  this.setBandGain = function(bandIndex, gain) {
+    if (!bandIndex || bandIndex < 0 || bandIndex > (this.filters.length-1)) {
+      return;
+    }
+
+    if (!gain) {
+      return;
+    }
+
+    this.filters[bandIndex].setDbGain(gain);
+  }
+
+  this.process = function(buffer) {
+      var output = buffer;
+      
+      for ( var i=0; i<this.filters.length; i++ ) {
+	output = this.filters[i].process(output);
+      }
+
+      return output;
+  }
+
+  this.processStereo = function(buffer) {
+      var output = buffer;
+      
+      for ( var i=0; i<this.filters.length; i++ ) {
+	output = this.filters[i].processStereo(output);
+      }
+
+      return output;
+  }
+
+}
