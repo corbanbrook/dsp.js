@@ -716,6 +716,27 @@ WindowFunction.Gauss = function(length, index, alpha) {
   return Math.pow(Math.E, -0.5 * Math.pow((index - (length - 1) / 2) / (alpha * (length - 1) / 2), 2));
 };
 
+WindowFunction.Hamming = function(length, index) {
+  return 0.54 - 0.46 * Math.cos(DSP.TWO_PI * index / (length - 1));
+};
+
+WindowFunction.Hann = function(length, index) {
+  return 0.5 * (1 - Math.cos(DSP.TWO_PI * index / (length - 1)));
+};
+
+WindowFunction.Lanczos = function(length, index) {
+  var x = 2 * index / (length - 1) - 1;
+  return Math.sin(Math.PI * x) / (Math.PI * x);
+};
+
+WindowFunction.Rectangular = function(length, index) {
+  return 1;
+};
+
+WindowFunction.Triangular = function(length, index) {
+  return 2 / length * (length / 2 - Math.abs(index - (length - 1) / 2));
+};
+
 function sinh (arg) {
     // Returns the hyperbolic sine of the number, defined as (exp(number) - exp(-number))/2  
     // 
@@ -947,16 +968,13 @@ Biquad = function(type, sampleRate) {
     this.a2a0 = this.a2/this.a0;
   }
 
-  this.process = function(buffer, len) {
+  this.process = function(buffer) {
       //y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
       //       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
 
-      if (!len) {
-	len = buffer.length;
-      }
+      var len = buffer.length;
+      var output = new Float32Array(len);
 
-      var output = Array(buffer.length);
-      
       for ( var i=0; i<len; i++ ) {
 	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
 	this.y_2_l = this.y_1_l;
@@ -968,17 +986,14 @@ Biquad = function(type, sampleRate) {
       return output;
   }
 
-  this.processStereo = function(buffer, len) {
+  this.processStereo = function(buffer) {
       //y[n] = (b0/a0)*x[n] + (b1/a0)*x[n-1] + (b2/a0)*x[n-2]
       //       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
 
-      if (!len) {
-	len = buffer.length;
-      }
-
-      var output = Array(buffer.length);
+      var len = buffer.length;
+      var output = new Float32Array(len);
       
-      for ( var i=0; i<len; i++ ) {
+      for ( var i=0; i<len/2; i++ ) {
 	output[2*i] = this.b0a0*buffer[2*i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
 	this.y_2_l = this.y_1_l;
 	this.y_1_l = output[2*i];
@@ -1037,23 +1052,3 @@ DSP.freqz = function(b, a, w) {
   return result;
 };
 
-WindowFunction.Hamming = function(length, index) {
-  return 0.54 - 0.46 * Math.cos(DSP.TWO_PI * index / (length - 1));
-};
-
-WindowFunction.Hann = function(length, index) {
-  return 0.5 * (1 - Math.cos(DSP.TWO_PI * index / (length - 1)));
-};
-
-WindowFunction.Lanczos = function(length, index) {
-  var x = 2 * index / (length - 1) - 1;
-  return Math.sin(Math.PI * x) / (Math.PI * x);
-};
-
-WindowFunction.Rectangular = function(length, index) {
-  return 1;
-};
-
-WindowFunction.Triangular = function(length, index) {
-  return 2 / length * (length / 2 - Math.abs(index - (length - 1) / 2));
-};

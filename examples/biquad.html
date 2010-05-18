@@ -78,15 +78,16 @@
       var sampleRate = 44100;
       
       var response = [];
-      var signal = [];
       var writeCount = 0;
+
+      var signal = new Float32Array(2048);
 
       var biquad;
 
       var output = new Audio();
 
       if ( typeof output.mozSetup === 'function' ) {
-        output.mozSetup(1, sampleRate, 1);
+        output.mozSetup(2, sampleRate, 1);
       }
 
       var plotCoeffs = function() {
@@ -133,24 +134,13 @@
       }
 
       function audioWritten(event) {
-	
-        var mozSignal = event.mozFrameBuffer;
-	var signalLength = mozSignal.length;
+        signal = event.mozFrameBuffer;
 
-        // Convert mozSignal to mono native js array
-        signal = [];
-        for ( var i = 0; i < signalLength / 2; i++ ) {
-          if ( mozSignal.item(2*i) == 0 ) {
-            break;
-          }
-          signal[i] = (mozSignal.item(2*i) + mozSignal.item(2*i+1)) / 2;
-        }
-        
         // Apply the filter to the signal
-        signal = biquad.process(signal);
+        signal = biquad.processStereo(signal);
 
-        output.mozWriteAudio(0, []); // flush
-        output.mozWriteAudio(signal.length, signal);
+        output.mozWriteAudio([]); // flush
+        output.mozWriteAudio(signal);
         writeCount++;
       }
     </script>
