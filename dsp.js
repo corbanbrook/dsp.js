@@ -1070,7 +1070,7 @@ Biquad = function(type, sampleRate) {
       var len = buffer.length;
       var output = new Float32Array(len);
 
-      for ( var i=0; i<len; i++ ) {
+      for ( var i=0; i<buffer.length; i++ ) {
 	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
 	this.y_2_l = this.y_1_l;
 	this.y_1_l = output[i];
