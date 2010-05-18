@@ -124,7 +124,7 @@
       var CURVE_EDITOR = false;
     
       // Setup shared variables
-      var sampleRate = 11025;
+      var sampleRate = 44100;
       var bufferSize = 1024;
       var bufferTime = Math.floor(1000 / (sampleRate / bufferSize));
       
@@ -317,10 +317,10 @@
           }
 
           // Flush buffer  
-          a.mozWriteAudio(0, []);
+          a.mozWriteAudio([]);
           
           // Write next audio frame
-          a.mozWriteAudio(osc.signal.length, osc.signal);
+          a.mozWriteAudio(osc.signal);
 
           writeCount++;
 

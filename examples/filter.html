@@ -65,7 +65,7 @@
       // Setup shared variables
       var sampleRate = 44100;
       
-      var signal = [];
+      var signal = new Float32Array(2048);
       var lp12;
 
       var writeCount = 0;
@@ -80,25 +80,21 @@
       var changeFilter = function() {
         lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
       }
-      
-      function audioWritten(event) {
 
+      function audioWritten(event) {
         var mozSignal = event.mozFrameBuffer;
 
         // Convert mozSignal to mono native js array
-        signal = [];
-        for ( var i = 0, signalLength = mozSignal.length; i < signalLength / 2; i++ ) {
-          if ( mozSignal.item(2*i) == 0 ) {
-            break;
-          }
-          signal[i] = (mozSignal.item(2*i) + mozSignal.item(2*i+1)) / 2;
+        signal = new Float32Array(2048);
+        for ( var i = 0; i < mozSignal.length / 2; i++ ) {
+          signal[i] = (mozSignal[2*i] + mozSignal[2*i+1]) / 2;
         }
         
         // Apply the filter to the signal
         lp12.process(signal);
 
-        output.mozWriteAudio(0, []); // flush
-        output.mozWriteAudio(signal.length, signal);
+        output.mozWriteAudio([]); // flush
+        output.mozWriteAudio(signal);
         writeCount++;
       }
     </script>

@@ -6,32 +6,52 @@
  *
  */
 
-DSP = function() {};
 
-// Waveforms
+/**
+ * DSP is an object which contains general purpose utility functions and contants
+ */
+DSP = {};
+
+/**
+ * Inverts the phase of a signal
+ *
+ * @param   {Array} buffer A sample buffer
+ *
+ * @returns The inverted sample buffer
+ */
+DSP.invert = function(buffer) {
+  for ( var i = 0, len = buffer.length; i < len; i++ ) {
+    buffer[i] *= -1;
+  }
+
+  return buffer;
+};
+
+/** Waveforms */
 DSP.SINE     = 1;
 DSP.TRIANGLE = 2;
 DSP.SAW      = 3;
 DSP.SQUARE   = 4;
 
-// IIR Filters
+/** Filters */
 DSP.LOWPASS  = 0;
 DSP.HIGHPASS = 1;
 DSP.BANDPASS = 2;
 DSP.NOTCH    = 3;
 
-// Window functions
+/** Window functions */
+DSP.BARTLETT     =  1;
+DSP.BARTLETTHANN =  2;
+DSP.BLACKMAN     =  3;
+DSP.COSINE       =  4;
+DSP.GAUSS        =  5;
+DSP.HAMMING      =  6;
 DSP.HANN         =  7;
-DSP.HAMMING      =  8;
+DSP.LANCZOS      =  8;
 DSP.RECTANGULAR  =  9;
 DSP.TRIANGULAR   = 10;
-DSP.BLACKMAN     = 11;
-DSP.BARTLETT     = 12;
-DSP.BARTLETTHANN = 13;
-DSP.GAUSS        = 14;
-DSP.LANCZOS      = 15;
-DSP.COSINE       = 16;
 
+/** Math */
 DSP.TWO_PI = 2*Math.PI;
 
 // Biquad filter types
@@ -51,24 +71,40 @@ DSP.BW = 1;
 DSP.S = 2;
 
 
+/** 
+ * DFT is a class for calculating the Discrete Fourier Transform of a signal.
+ *
+ * @param   {Number} bufferSize The size of the sample buffer to be computed
+ * @param   {Number} sampleRate The sampleRate of the buffer (eg. 44100)
+ *
+ * @constructor
+ */
 DFT = function(bufferSize, sampleRate) {
   this.bufferSize = bufferSize;
   this.sampleRate = sampleRate;
 
   var N = bufferSize/2 * bufferSize;
       
-  this.sinTable = new Array(N);
-  this.cosTable = new Array(N);
+  this.sinTable = new Float32Array(N);
+  this.cosTable = new Float32Array(N);
   
   for ( var i = 0; i < N; i++ ) {
     this.sinTable[i] = Math.sin(i * DSP.TWO_PI / bufferSize);
     this.cosTable[i] = Math.cos(i * DSP.TWO_PI / bufferSize);
   }
   
-  this.spectrum = new Array(bufferSize/2);
-  this.complexValues = new Array(bufferSize/2);
+  this.spectrum = new Float32Array(bufferSize/2);
+  this.complexValues = new Float32Array(bufferSize/2);
 };
 
+/**
+ * Performs a forward tranform on the sample buffer. 
+ * Converts a time domain signal to frequency domain spectra.
+ *
+ * @param   {Array} buffer The sample buffer
+ *
+ * @returns The frequency spectrum array
+ */
 DFT.prototype.forward = function(buffer) {
   var real, imag;
 
@@ -91,15 +127,26 @@ DFT.prototype.forward = function(buffer) {
   return this.spectrum;
 };
 
+
+/** 
+ * FFT is a class for calculating the Discrete Fourier Transform of a signal 
+ * with the Fast Fourier Transform algorithm.
+ *
+ * @param   {Number} bufferSize The size of the sample buffer to be computed. Must be power of 2
+ * @param   {Number} sampleRate The sampleRate of the buffer (eg. 44100)
+ *
+ * @constructor
+ */
 FFT = function(bufferSize, sampleRate) {
   this.bufferSize = bufferSize;
   this.sampleRate = sampleRate;
 
-  this.spectrum      = new Array(bufferSize/2);
-  this.complexValues = new Array(bufferSize);
+  this.spectrum         = new Float32Array(bufferSize/2);
+  this.real             = new Float32Array(bufferSize);
+  this.imag             = new Float32Array(bufferSize);
     
-  this.reverseTable  = new Array(bufferSize);
-  this.reverseTable[0] = 0;
+  this.reverseTable     = new Uint32Array(bufferSize);
+  this.reverseTable[0]  = 0;
 
   var limit = 1;
   var bit = bufferSize >> 1;
@@ -112,22 +159,35 @@ FFT = function(bufferSize, sampleRate) {
     limit = limit << 1;
     bit = bit >> 1;
   }
-    
-  this.sinTable = new Array(bufferSize);
-  this.cosTable = new Array(bufferSize);
-  
+
+  this.sinTable = new Float32Array(bufferSize);
+  this.cosTable = new Float32Array(bufferSize);
+
+  var sin = Math.sin;
+  var cos = Math.cos;
+  var PI  = Math.PI;
+
   for ( var i = 0; i < bufferSize; i++ ) {
-    this.sinTable[i] = Math.sin(-Math.PI/i);
-    this.cosTable[i] = Math.cos(-Math.PI/i);
+    this.sinTable[i] = sin(-PI/i);
+    this.cosTable[i] = cos(-PI/i);
   }
 };
 
+/**
+ * Performs a forward tranform on the sample buffer. 
+ * Converts a time domain signal to frequency domain spectra.
+ *
+ * @param   {Array} buffer The sample buffer. Buffer Length must be power of 2
+ *
+ * @returns The frequency spectrum array
+ */
 FFT.prototype.forward = function(buffer) {
   if ( this.bufferSize % 2 != 0 )         { throw "Invalid buffer size, must be a power of 2."; }
   if ( this.bufferSize != buffer.length ) { throw "Supplied buffer is not the same size as defined FFT. FFT Size: " + this.bufferSize + " Buffer Size: " + buffer.length; }
 
   for ( var i = 0; i < buffer.length; i++ ) {
-    this.complexValues[i] = {real: buffer[this.reverseTable[i]], imag: 0.0};
+    this.real[i] = buffer[this.reverseTable[i]];
+    this.imag[i] = 0.0;
   }
 
   var halfSize = 1;
@@ -143,13 +203,13 @@ FFT.prototype.forward = function(buffer) {
 
       while ( i < buffer.length ) {
         var off = i + halfSize;
-        var tr = (currentPhaseShiftReal * this.complexValues[off].real) - (currentPhaseShiftImag * this.complexValues[off].imag);
-        var ti = (currentPhaseShiftReal * this.complexValues[off].imag) + (currentPhaseShiftImag * this.complexValues[off].real);
+        var tr = (currentPhaseShiftReal * this.real[off]) - (currentPhaseShiftImag * this.imag[off]);
+        var ti = (currentPhaseShiftReal * this.imag[off]) + (currentPhaseShiftImag * this.real[off]);
 
-        this.complexValues[off].real = this.complexValues[i].real - tr;
-        this.complexValues[off].imag = this.complexValues[i].imag - ti;
-        this.complexValues[i].real += tr;
-        this.complexValues[i].imag += ti;
+        this.real[off] = this.real[i] - tr;
+        this.imag[off] = this.imag[i] - ti;
+        this.real[i] += tr;
+        this.imag[i] += ti;
 
         i += halfSize << 1;
       }
@@ -162,90 +222,110 @@ FFT.prototype.forward = function(buffer) {
     halfSize = halfSize << 1;
   }
 
+  var sqrt = Math.sqrt;
+
   for ( var i = 0; i < this.bufferSize/2; i++ ) {
-    this.spectrum[i] = 2 * Math.sqrt(Math.pow(this.complexValues[i].real, 2) + Math.pow(this.complexValues[i].imag, 2)) / this.bufferSize;
+    this.spectrum[i] = 2 * sqrt(this.real[i] * this.real[i] + this.imag[i] * this.imag[i]) / this.bufferSize;
   }
   
   return this.spectrum;
 };
 
+
+/**
+ * Oscillator class for generating and modifying signals
+ *
+ * @param {Number} type       A waveform constant (eg. DSP.SINE)
+ * @param {Number} frequency  Initial frequency of the signal
+ * @param {Number} amplitude  Initial amplitude of the signal
+ * @param {Number} bufferSize Size of the sample buffer to generate
+ * @param {Number} sampleRate The sample rate of the signal
+ *
+ * @contructor
+ */
 Oscillator = function Oscillator(type, frequency, amplitude, bufferSize, sampleRate) {
-    this.frequency  = frequency;
-    this.amplitude  = amplitude;
-    this.bufferSize = bufferSize;
-    this.sampleRate = sampleRate;
-    this.frameCount = 0;
-    
-    this.waveTableLength = 2048;
+  this.frequency  = frequency;
+  this.amplitude  = amplitude;
+  this.bufferSize = bufferSize;
+  this.sampleRate = sampleRate;
+  //this.pulseWidth = pulseWidth;
+  this.frameCount = 0;
+  
+  this.waveTableLength = 2048;
 
-    this.cyclesPerSample = frequency / sampleRate;
+  this.cyclesPerSample = frequency / sampleRate;
 
-    this.signal = new Array(bufferSize);
-    this.envelope = null;
-    this.envelopedSignal = new Array(bufferSize);
+  this.signal = new Float32Array(bufferSize);
+  this.envelope = null;
 
-    switch(parseInt(type)) {
-      case DSP.TRIANGLE:
-        this.func = Oscillator.Triangle;
-        break;
 
-      case DSP.SAW:
-        this.func = Oscillator.Saw;
-        break;
+  switch(parseInt(type)) {
+    case DSP.TRIANGLE:
+      this.func = Oscillator.Triangle;
+      break;
 
-      case DSP.SQUARE:
-        this.func = Oscillator.Square;
-        break;
+    case DSP.SAW:
+      this.func = Oscillator.Saw;
+      break;
 
-      case DSP.SINE:
-      default:
-        this.func = Oscillator.Sine;
-        break;
+    case DSP.SQUARE:
+      this.func = Oscillator.Square;
+      break;
+
+    case DSP.SINE:
+    default:
+      this.func = Oscillator.Sine;
+      break;
+  }
+
+  this.generateWaveTable = function() {
+    Oscillator.waveTable[this.func] = new Float32Array(2048);
+    var waveTableTime = this.waveTableLength / this.sampleRate;
+    var waveTableHz = 1 / waveTableTime;
+
+    for (var i = 0; i < this.waveTableLength; i++) {
+      Oscillator.waveTable[this.func][i] = this.func(i * waveTableHz/this.sampleRate);
     }
+  };
 
-    this.generateWaveTable = function() {
-      Oscillator.waveTable[this.func] = Array(2048);
-      var waveTableTime = this.waveTableLength / this.sampleRate;
-      var waveTableHz = 1 / waveTableTime;
+  if ( typeof Oscillator.waveTable === 'undefined' ) {
+    Oscillator.waveTable = {};
+  }
 
-      for (var i = 0; i < this.waveTableLength; i++) {
-        Oscillator.waveTable[this.func][i] = this.func(i * waveTableHz/this.sampleRate);
-      }
-    };
-
-    if ( typeof Oscillator.waveTable === 'undefined' ) {
-      Oscillator.waveTable = {};
-    }
-
-    if ( typeof Oscillator.waveTable[this.func] === 'undefined' ) { 
-      this.generateWaveTable();
-    }
-    
-    this.waveTable = Oscillator.waveTable[this.func];
-
-    //this.generate();
+  if ( typeof Oscillator.waveTable[this.func] === 'undefined' ) { 
+    this.generateWaveTable();
+  }
+  
+  this.waveTable = Oscillator.waveTable[this.func];
 }; 
 
-
+/**
+ * Set the amplitude of the signal
+ *
+ * @param {Number} amplitude The amplitude of the signal (between 0 and 1)
+ */
 Oscillator.prototype.setAmp = function(amplitude) {
   if (amplitude >= 0 && amplitude <= 1) {
     this.amplitude = amplitude;
-    //this.generate();
   } else {
     throw "Amplitude out of range (0..1).";
   }
 };
-      
+   
+/**
+ * Set the frequency of the signal
+ * 
+ * @param {Number} frequency The frequency of the signal
+ */   
 Oscillator.prototype.setFreq = function(frequency) {
   this.frequency = frequency;
   this.cyclesPerSample = frequency / this.sampleRate;
-  //this.generate();
 };
       
 // Add an oscillator
 Oscillator.prototype.add = function(oscillator) {
   for ( var i = 0; i < this.bufferSize; i++ ) {
-    //self.signal[i] += oscillator.valueAt(i);
+    //this.signal[i] += oscillator.valueAt(i);
     this.signal[i] += oscillator.signal[i];
   }
   
@@ -261,13 +341,15 @@ Oscillator.prototype.addSignal = function(signal) {
     this.signal[i] += signal[i];
     
     /*
+    // Constrain amplitude
     if ( this.signal[i] > 1 ) {
       this.signal[i] = 1;
     } else if ( this.signal[i] < -1 ) {
       this.signal[i] = -1;
-    }*/
+    }
+    */
   }
-  return self.signal;
+  return this.signal;
 };
       
 // Add an envelope to the oscillator
@@ -276,7 +358,6 @@ Oscillator.prototype.addEnvelope = function(envelope) {
 };
       
 Oscillator.prototype.valueAt = function(offset) {
-  //return this.waveLength[offset % this.waveLength.length];
   return this.waveTable[offset % this.waveTableLength];
 };
       
@@ -312,6 +393,10 @@ Oscillator.Saw = function(step) {
 
 Oscillator.Triangle = function(step) {
   return 1 - 4 * Math.abs(Math.round(step) - step);
+};
+
+Oscillator.Pulse = function(step) {
+  // stub
 };
   
 ADSR = function(attackLength, decayLength, sustainLevel, sustainLength, releaseLength, sampleRate) {
@@ -556,30 +641,6 @@ WindowFunction = function(type, alpha) {
   this.alpha = alpha;
   
   switch(type) {
-    case DSP.HANN:
-      this.func = WindowFunction.Hann;
-      break;
-    
-    case DSP.HAMMING:
-      this.func = WindowFunction.Hamming;
-      break;
-      
-    case DSP.COSINE:
-      this.func = WindowFunction.Cosine;
-      break;
-      
-    case DSP.RECTANGULAR:
-      this.func = WindowFunction.Rectangular;
-      break;
-      
-    case DSP.TRIANGULAR:
-      this.func = WindowFunction.Triangular;
-      break;
-    
-    case DSP.LANCZOS:
-      this.func = WindowFunction.Lanczoz;
-      break;
-      
     case DSP.BARTLETT:
       this.func = WindowFunction.Bartlett;
       break;
@@ -592,10 +653,34 @@ WindowFunction = function(type, alpha) {
       this.func = WindowFunction.Blackman;
       this.alpha = this.alpha || 0.16;
       break;
-          
+    
+    case DSP.COSINE:
+      this.func = WindowFunction.Cosine;
+      break;
+      
     case DSP.GAUSS:
       this.func = WindowFunction.Gauss;
       this.alpha = this.alpha || 0.25;
+      break;
+      
+    case DSP.HAMMING:
+      this.func = WindowFunction.Hamming;
+      break;
+      
+    case DSP.HANN:
+      this.func = WindowFunction.Hann;
+      break;
+    
+    case DSP.LANCZOS:
+      this.func = WindowFunction.Lanczoz;
+      break;
+      
+    case DSP.RECTANGULAR:
+      this.func = WindowFunction.Rectangular;
+      break;
+      
+    case DSP.TRIANGULAR:
+      this.func = WindowFunction.Triangular;
       break;
   }
 };
@@ -605,31 +690,6 @@ WindowFunction.prototype.process = function(buffer) {
   for ( var i = 0; i < length; i++ ) {
     buffer[i] *= this.func(length, i, this.alpha);
   }
-};
-
-WindowFunction.Rectangular = function(length, index) {
-  return 1;
-};
-
-WindowFunction.Triangular = function(length, index) {
-  return 2 / length * (length / 2 - Math.abs(index - (length - 1) / 2));
-};
-
-WindowFunction.Hann = function(length, index) {
-  return 0.5 * (1 - Math.cos(DSP.TWO_PI * index / (length - 1)));
-};
-
-WindowFunction.Hamming = function(length, index) {
-  return 0.54 - 0.46 * Math.cos(DSP.TWO_PI * index / (length - 1));
-};
-
-WindowFunction.Lanczos = function(length, index) {
-  var x = 2 * index / (length - 1) - 1;
-  return Math.sin(Math.PI * x) / (Math.PI * x);
-};
-
-WindowFunction.Cosine = function(length, index) {
-  return Math.cos(Math.PI * index / (length - 1) - Math.PI / 2);
 };
 
 WindowFunction.Bartlett = function(length, index) {
@@ -646,6 +706,10 @@ WindowFunction.Blackman = function(length, index, alpha) {
   var a2 = alpha / 2;
 
   return a0 - a1 * Math.cos(DSP.TWO_PI * index / (length - 1)) + a2 * Math.cos(4 * Math.PI * index / (length - 1));
+};
+
+WindowFunction.Cosine = function(length, index) {
+  return Math.cos(Math.PI * index / (length - 1) - Math.PI / 2);
 };
 
 WindowFunction.Gauss = function(length, index, alpha) {
@@ -971,4 +1035,25 @@ DSP.freqz = function(b, a, w) {
   }
 
   return result;
+};
+
+WindowFunction.Hamming = function(length, index) {
+  return 0.54 - 0.46 * Math.cos(DSP.TWO_PI * index / (length - 1));
+};
+
+WindowFunction.Hann = function(length, index) {
+  return 0.5 * (1 - Math.cos(DSP.TWO_PI * index / (length - 1)));
+};
+
+WindowFunction.Lanczos = function(length, index) {
+  var x = 2 * index / (length - 1) - 1;
+  return Math.sin(Math.PI * x) / (Math.PI * x);
+};
+
+WindowFunction.Rectangular = function(length, index) {
+  return 1;
+};
+
+WindowFunction.Triangular = function(length, index) {
+  return 2 / length * (length / 2 - Math.abs(index - (length - 1) / 2));
 };
