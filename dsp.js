@@ -828,6 +828,14 @@ function sinh (arg) {
     return (Math.exp(arg) - Math.exp(-arg))/2;
 }
 
+
+/*  
+ *  Biquad filter
+ *  
+ *  Created by Ricard Marxer <email@ricardmarxer.com> on 2010-05-23.
+ *  Copyright 2010 Ricard Marxer. All rights reserved.
+ *
+ */
 // Implementation based on:
 // http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 Biquad = function(type, sampleRate) {
@@ -1092,42 +1100,76 @@ Biquad = function(type, sampleRate) {
   }
 };
 
+
+/*  
+ *  Magnitude to decibels
+ *  
+ *  Created by Ricard Marxer <email@ricardmarxer.com> on 2010-05-23.
+ *  Copyright 2010 Ricard Marxer. All rights reserved.
+ *
+ *  @buffer array of magnitudes to convert to decibels
+ * 
+ *  @returns the array in decibels
+ *
+ */
 DSP.mag2db = function(buffer) {
   var minDb = -120;
   var minMag = Math.pow(10.0, minDb / 20.0);
 
-  var result = Array(buffer.length);
+  var log = Math.log;
+  var max = Math.max;
+  
+  var result = Float32Array(buffer.length);
   for (var i=0; i<buffer.length; i++) {
-    result[i] = 20.0*Math.log(Math.max(buffer[i], minMag));
+    result[i] = 20.0*log(max(buffer[i], minMag));
   }
 
   return result;
 };
 
+/*  
+ *  Frequency response
+ *  
+ *  Created by Ricard Marxer <email@ricardmarxer.com> on 2010-05-23.
+ *  Copyright 2010 Ricard Marxer. All rights reserved.
+ *
+ *  Calculates the frequency response at the given points.
+ *
+ *  @b b coefficients of the filter
+ *  @a a coefficients of the filter
+ *  @w w points (normally between -PI and PI) where to calculate the frequency response
+ * 
+ *  @returns the frequency response in magnitude
+ *
+ */
 DSP.freqz = function(b, a, w) {
   if (!w) {
-    w = Array(200);
+    w = Float32Array(200);
     for (var i=0;i<w.length; i++) {
       w[i] = DSP.TWO_PI/w.length * i - Math.PI;
     }
   }
 
-  var result = Array(w.length);
+  var result = Float32Array(w.length);
+  
+  var sqrt = Math.sqrt;
+  var cos = Math.cos;
+  var sin = Math.sin;
   
   for (var i=0; i<w.length; i++) {
     var numerator = {real:0.0, imag:0.0};
     for (var j=0; j<b.length; j++) {
-      numerator.real += b[j] * Math.cos(-j*w[i]);
-      numerator.imag += b[j] * Math.sin(-j*w[i]);
+      numerator.real += b[j] * cos(-j*w[i]);
+      numerator.imag += b[j] * sin(-j*w[i]);
     }
 
     var denominator = {real:0.0, imag:0.0};
     for (var j=0; j<a.length; j++) {
-      denominator.real += a[j] * Math.cos(-j*w[i]);
-      denominator.imag += a[j] * Math.sin(-j*w[i]);
+      denominator.real += a[j] * cos(-j*w[i]);
+      denominator.imag += a[j] * sin(-j*w[i]);
     }
   
-    result[i] =  Math.sqrt(Math.pow(numerator.real, 2) + Math.pow(numerator.imag, 2)) / Math.sqrt(Math.pow(denominator.real, 2) + Math.pow(denominator.imag, 2));
+    result[i] =  sqrt(numerator.real*numerator.real + numerator.imag*numerator.imag) / sqrt(denominator.real*denominator.real + denominator.imag*denominator.imag);
   }
 
   return result;
