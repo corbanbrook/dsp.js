@@ -1181,6 +1181,13 @@ DSP.freqz = function(b, a, w) {
   return result;
 };
 
+/*  
+ *  Graphical Equalizer
+ *  
+ *  Created by Ricard Marxer <email@ricardmarxer.com> on 2010-05-23.
+ *  Copyright 2010 Ricard Marxer. All rights reserved.
+ *
+ */
 // Implementation of a graphic equalizer with a configurable bands-per-octave
 // and minimum and maximum frequencies
 GraphicalEq = function(sampleRate) {
@@ -1191,6 +1198,7 @@ GraphicalEq = function(sampleRate) {
   this.bandsPerOctave = 2.0;
 
   this.filters = []
+  this.freqzs = []
 
   this.recalculateFilters = function() {
     var bandCount = Math.round(Math.log(this.maxFreq/this.minFreq) * this.bandsPerOctave/ Math.LN2);
@@ -1202,6 +1210,7 @@ GraphicalEq = function(sampleRate) {
       filter.setDbGain(0);
       filter.setBW(1/this.bandsPerOctave);
       this.filters[i] = filter;
+      this.recalculateFreqz(i);
     }
   }
 
@@ -1222,14 +1231,36 @@ GraphicalEq = function(sampleRate) {
 
   this.setBandGain = function(bandIndex, gain) {
     if (!bandIndex || bandIndex < 0 || bandIndex > (this.filters.length-1)) {
+      throw "The band index of the graphical equalizer is out of bounds."
       return;
     }
 
     if (!gain) {
+      throw "A gain must be passed."
       return;
     }
 
     this.filters[bandIndex].setDbGain(gain);
+    this.recalculateFreqz(bandIndex);
+  }
+  
+  this.recalculateFreqz = function(bandIndex) {
+    if (!bandIndex || bandIndex < 0 || bandIndex > (this.filters.length-1)) {
+      throw "The band index of the graphical equalizer is out of bounds."
+      return;
+    }
+        
+    if (!this.w) {
+      this.w = Array(200);
+      for (var i=0; i<this.w.length; i++) {
+         this.w[i] = Math.PI/this.w.length * i;
+      }
+    }
+    
+    var b = [this.filter[i].b0, this.filter[i].b1, this.filter[i].b2];
+    var a = [this.filter[i].a0, this.filter[i].a1, this.filter[i].a2];
+
+    this.freqzs[i] = DSP.mag2db(DSP.freqz(b, a, this.w));
   }
 
   this.process = function(buffer) {
