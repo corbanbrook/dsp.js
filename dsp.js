@@ -6,16 +6,60 @@
  *
  */
 
+// Setup arrays for platforms which do not support byte arrays
+Float32Array = (typeof Float32Array === 'undefined') ? Array : Float32Array;
+Float64Array = (typeof Float64Array === 'undefined') ? Array : Float64Array;
+Uint32Array  = (typeof Uint32Array  === 'undefined') ? Array : Uint32Array;
+
+////////////////////////////////////////////////////////////////////////////////
+//                                  CONSTANTS                                 //
+////////////////////////////////////////////////////////////////////////////////
 
 /**
- * DSP is an object which contains general purpose utility functions and contants
+ * DSP is an object which contains general purpose utility functions and constants
  */
-DSP = {};
+DSP = {
+  // Channels
+  LEFT:           0,
+  RIGHT:          1,
+  MIX:            2,
+
+  // Waveforms
+  SINE:           1,
+  TRIANGLE:       2,
+  SAW:            3,
+  SQUARE:         4,
+
+  // Filters 
+  LOWPASS:        0,
+  HIGHPASS:       1,
+  BANDPASS:       2,
+  NOTCH:          3,
+
+  // Window functions
+  BARTLETT:       1,
+  BARTLETTHANN:   2,
+  BLACKMAN:       3,
+  COSINE:         4,
+  GAUSS:          5,
+  HAMMING:        6,
+  HANN:           7,
+  LANCZOS:        8,
+  RECTANGULAR:    9,
+  TRIANGULAR:     10,
+
+  // Math
+  TWO_PI:         2*Math.PI
+};
+
+////////////////////////////////////////////////////////////////////////////////
+//                            DSP UTILITY FUNCTIONS                           //
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Inverts the phase of a signal
  *
- * @param   {Array} buffer A sample buffer
+ * @param {Array} buffer A sample buffer
  *
  * @returns The inverted sample buffer
  */
@@ -27,32 +71,61 @@ DSP.invert = function(buffer) {
   return buffer;
 };
 
-/** Waveforms */
-DSP.SINE     = 1;
-DSP.TRIANGLE = 2;
-DSP.SAW      = 3;
-DSP.SQUARE   = 4;
+/**
+ * Converts split-stereo (dual mono) sample buffers into a stereo interleaved sample buffer
+ *
+ * @param {Array} left  A sample buffer
+ * @param {Array} right A sample buffer
+ *
+ * @returns The stereo interleaved buffer
+ */
+DSP.interleave = function(left, right) {
+  if ( left.length !== right.length ) {
+    throw "Can not interleave. Channel lengths differ.";
+  }
+  
+  var stereoInterleaved = new Float32Array(left.length * 2);
+  
+  for (var i = 0, len = left.length; i < len; i++ ) {
+    stereoInterleaved[2*i]   = left[i];
+    stereoInterleaved[2*i+1] = right[i];
+  }
+  
+  return stereoInterleaved;
+};
 
-/** Filters */
-DSP.LOWPASS  = 0;
-DSP.HIGHPASS = 1;
-DSP.BANDPASS = 2;
-DSP.NOTCH    = 3;
+/**
+ * Converts a stereo-interleaved sample buffer into split-stereo (dual mono) sample buffers
+ *
+ * @param {Array} buffer A stereo-interleaved sample buffer
+ *
+ * @returns an Array containing left and right channels
+ */
+DSP.deinterleave = function(buffer) {
+  var left  = new Float32Array(buffer.length/2);
+  var right = new Float32Array(buffer.length/2);
+  var mix   = new Float32Array(buffer.length/2);
+  
+  for (var i = 0, len = buffer.length/2; i < len; i ++ ) {
+    left[i]  = buffer[2*i];
+    right[i] = buffer[2*i+1];
+    mix[i]   = (left[i] + right[i]) / 2;
+  }
+  
+  return [left, right, mix];
+};
 
-/** Window functions */
-DSP.BARTLETT     =  1;
-DSP.BARTLETTHANN =  2;
-DSP.BLACKMAN     =  3;
-DSP.COSINE       =  4;
-DSP.GAUSS        =  5;
-DSP.HAMMING      =  6;
-DSP.HANN         =  7;
-DSP.LANCZOS      =  8;
-DSP.RECTANGULAR  =  9;
-DSP.TRIANGULAR   = 10;
-
-/** Math */
-DSP.TWO_PI = 2*Math.PI;
+/**
+ * Separates a channel from a stereo-interleaved sample buffer
+ *
+ * @param {Array}  buffer A stereo-interleaved sample buffer
+ * @param {Number} channel A channel constant (LEFT, RIGHT, MIX)
+ *
+ * @returns an Array containing a signal mono sample buffer
+ */
+DSP.getChannel = function(channel, buffer) {
+  return DSP.deinterleave(buffer)[channel];
+};
 
 // Biquad filter types
 DSP.LPF = 0;       // H(s) = 1 / (s^2 + s/Q + 1)
@@ -74,8 +147,8 @@ DSP.S = 2;
 /** 
  * DFT is a class for calculating the Discrete Fourier Transform of a signal.
  *
- * @param   {Number} bufferSize The size of the sample buffer to be computed
- * @param   {Number} sampleRate The sampleRate of the buffer (eg. 44100)
+ * @param {Number} bufferSize The size of the sample buffer to be computed
+ * @param {Number} sampleRate The sampleRate of the buffer (eg. 44100)
  *
  * @constructor
  */
@@ -101,7 +174,7 @@ DFT = function(bufferSize, sampleRate) {
  * Performs a forward tranform on the sample buffer. 
  * Converts a time domain signal to frequency domain spectra.
  *
- * @param   {Array} buffer The sample buffer
+ * @param {Array} buffer The sample buffer
  *
  * @returns The frequency spectrum array
  */
@@ -132,21 +205,19 @@ DFT.prototype.forward = function(buffer) {
  * FFT is a class for calculating the Discrete Fourier Transform of a signal 
  * with the Fast Fourier Transform algorithm.
  *
- * @param   {Number} bufferSize The size of the sample buffer to be computed. Must be power of 2
- * @param   {Number} sampleRate The sampleRate of the buffer (eg. 44100)
+ * @param {Number} bufferSize The size of the sample buffer to be computed. Must be power of 2
+ * @param {Number} sampleRate The sampleRate of the buffer (eg. 44100)
  *
  * @constructor
  */
 FFT = function(bufferSize, sampleRate) {
   this.bufferSize = bufferSize;
   this.sampleRate = sampleRate;
-
   this.spectrum         = new Float32Array(bufferSize/2);
   this.real             = new Float32Array(bufferSize);
   this.imag             = new Float32Array(bufferSize);
     
   this.reverseTable     = new Uint32Array(bufferSize);
-  this.reverseTable[0]  = 0;
 
   var limit = 1;
   var bit = bufferSize >> 1;
@@ -163,13 +234,9 @@ FFT = function(bufferSize, sampleRate) {
   this.sinTable = new Float32Array(bufferSize);
   this.cosTable = new Float32Array(bufferSize);
 
-  var sin = Math.sin;
-  var cos = Math.cos;
-  var PI  = Math.PI;
-
   for ( var i = 0; i < bufferSize; i++ ) {
-    this.sinTable[i] = sin(-PI/i);
-    this.cosTable[i] = cos(-PI/i);
+    this.sinTable[i] = Math.sin(-Math.PI/i);
+    this.cosTable[i] = Math.cos(-Math.PI/i);
   }
 };
 
@@ -177,44 +244,62 @@ FFT = function(bufferSize, sampleRate) {
  * Performs a forward tranform on the sample buffer. 
  * Converts a time domain signal to frequency domain spectra.
  *
- * @param   {Array} buffer The sample buffer. Buffer Length must be power of 2
+ * @param {Array} buffer The sample buffer. Buffer Length must be power of 2
  *
  * @returns The frequency spectrum array
  */
 FFT.prototype.forward = function(buffer) {
-  if ( this.bufferSize % 2 != 0 )         { throw "Invalid buffer size, must be a power of 2."; }
-  if ( this.bufferSize != buffer.length ) { throw "Supplied buffer is not the same size as defined FFT. FFT Size: " + this.bufferSize + " Buffer Size: " + buffer.length; }
+  // Locally scope variables for speed up
+  var bufferSize      = this.bufferSize,
+      cosTable        = this.cosTable,
+      sinTable        = this.sinTable,
+      reverseTable    = this.reverseTable,
+      real            = this.real,
+      imag            = this.imag,
+      spectrum        = this.spectrum;
 
-  for ( var i = 0; i < buffer.length; i++ ) {
-    this.real[i] = buffer[this.reverseTable[i]];
-    this.imag[i] = 0.0;
+  if ( bufferSize % 2 !== 0 )         { throw "Invalid buffer size, must be a power of 2."; }
+  if ( bufferSize !== buffer.length ) { throw "Supplied buffer is not the same size as defined FFT. FFT Size: " + bufferSize + " Buffer Size: " + buffer.length; }
+
+  for ( var i = 0; i < bufferSize; i++ ) {
+    real[i] = buffer[reverseTable[i]];
+    imag[i] = 0;
   }
 
-  var halfSize = 1;
+  var halfSize = 1, 
+      phaseShiftStepReal, 
+      phaseShiftStepImag, 
+      currentPhaseShiftReal, 
+      currentPhaseShiftImag, 
+      off, 
+      tr, 
+      ti, 
+      tmpReal, 
+      i;
 
-  while ( halfSize < buffer.length ) {
-    var phaseShiftStepReal = this.cosTable[halfSize];
-    var phaseShiftStepImag = this.sinTable[halfSize];
-    var currentPhaseShiftReal = 1.0;
-    var currentPhaseShiftImag = 0.0;
+  while ( halfSize < bufferSize ) {
+    phaseShiftStepReal = cosTable[halfSize];
+    phaseShiftStepImag = sinTable[halfSize];
+    currentPhaseShiftReal = 1;
+    currentPhaseShiftImag = 0;
 
     for ( var fftStep = 0; fftStep < halfSize; fftStep++ ) {
-      var i = fftStep;
+      i = fftStep;
 
-      while ( i < buffer.length ) {
-        var off = i + halfSize;
-        var tr = (currentPhaseShiftReal * this.real[off]) - (currentPhaseShiftImag * this.imag[off]);
-        var ti = (currentPhaseShiftReal * this.imag[off]) + (currentPhaseShiftImag * this.real[off]);
+      while ( i < bufferSize ) {
+        off = i + halfSize;
+        tr = (currentPhaseShiftReal * real[off]) - (currentPhaseShiftImag * imag[off]);
+        ti = (currentPhaseShiftReal * imag[off]) + (currentPhaseShiftImag * real[off]);
 
-        this.real[off] = this.real[i] - tr;
-        this.imag[off] = this.imag[i] - ti;
-        this.real[i] += tr;
-        this.imag[i] += ti;
+        real[off] = real[i] - tr;
+        imag[off] = imag[i] - ti;
+        real[i] += tr;
+        imag[i] += ti;
 
         i += halfSize << 1;
       }
 
-      var tmpReal = currentPhaseShiftReal;
+      tmpReal = currentPhaseShiftReal;
       currentPhaseShiftReal = (tmpReal * phaseShiftStepReal) - (currentPhaseShiftImag * phaseShiftStepImag);
       currentPhaseShiftImag = (tmpReal * phaseShiftStepImag) + (currentPhaseShiftImag * phaseShiftStepReal);
     }
@@ -222,15 +307,11 @@ FFT.prototype.forward = function(buffer) {
     halfSize = halfSize << 1;
   }
 
-  var sqrt = Math.sqrt;
-
-  for ( var i = 0; i < this.bufferSize/2; i++ ) {
-    this.spectrum[i] = 2 * sqrt(this.real[i] * this.real[i] + this.imag[i] * this.imag[i]) / this.bufferSize;
+  i = bufferSize/2;
+  while(i--) {
+    spectrum[i] = 2 * Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) / bufferSize;
   }
-  
-  return this.spectrum;
 };
-
 
 /**
  * Oscillator class for generating and modifying signals
