@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- Load JQuery and JQuery-UI -->
+    <link type="text/css" href="css/hot-sneaks/jquery-ui-1.8.custom.css" rel="stylesheet" />  
+    <script type="text/javascript" src="js/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.8.custom.min.js"></script>
+    
+    <!-- Load Processing.js -->
+    <script language="javascript" src="js/processing.js"></script>
+    <script language="javascript" src="js/init.js"></script>
+
+    <!-- Load DSP.js -->
+    <script src="../dsp.js"></script>
+    <script>
+      $(function() {
+        $('#minFreq').slider({ orientation: 'vertical', range: 'min', min: 10, max: 22000, step: 1, value: 40, slide: changeMinFreq });
+        $('#maxFreq').slider({ orientation: 'vertical', range: 'min', min: 10, max: 22000, step: 1, value: 16000, slide: changeMaxFreq });
+        $('#bandsPerOctave').slider({ orientation: 'vertical', range: 'min', min: 0.5, max: 8, step: 0.1, value: 2, slide: changeBandsPerOctave });
+	$('#input').attr('volume', 0);
+      });
+    </script>
+
+    <style type="text/css">
+      body, * {
+        font-family: Arial, sans-serif;
+      }
+      .control {
+        padding: 5px;
+        border: 1px outset #CCC;
+        background-color: #EEE;
+        float: left;
+        margin-right: 5px;
+      }
+      .control table td {
+        padding: 10px;
+        width: 20px;
+        color: #999;
+        font-size: 12px;
+      }
+      .control h3 {
+        margin: 0;
+        padding:0;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .control #debug {
+        border: 1px inset #ccc;
+        background-color: #FFF;
+        font-size: 12px;
+        width: 300px;
+        padding: 10px;
+      }
+      .slider {
+        margin-bottom: 16px;
+        width: 8px;
+      }
+
+      .ui-button {
+        font-size: xx-small;
+      }
+      
+      .ui-slider .ui-slider-handle {
+        width: 8px;
+        margin-left: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Setup shared variables
+      var sampleRate = 44100;
+      
+      var writeCount = 0;
+
+      var signal = new Float32Array(2048);
+      var response = [0];
+
+      var grapheq;
+
+      var output = new Audio();
+
+      if ( typeof output.mozSetup === 'function' ) {
+        output.mozSetup(2, sampleRate, 1);
+      }
+      
+      var changeMinFreq = function() {
+         grapheq.setMinimumFrequency($('#minFreq').slider('option', 'value'));
+         plotCoeffs();
+	 createSliders();
+      }
+
+      var changeMaxFreq = function() {
+         grapheq.setMaximumFrequency($('#maxFreq').slider('option', 'value'));
+         plotCoeffs();
+	 createSliders();
+      }
+
+      var changeBandsPerOctave = function() {
+         grapheq.setBandsPerOctave($('#bandsPerOctave').slider('option', 'value'));
+         plotCoeffs();
+	 createSliders();
+      }
+
+      var createSliders = function() {
+	$('bandSliders').empty();
+	for (var i=0; i<grapheq.filters.length; i++) {
+	  $('bandSliders').add('<td><div id="b_'+i+'" class="slider"></div>'+grapheq.filters[i].f0+' Hz</td>');
+	  $('b_'+i).slider({ orientation: 'vertical', range: 'min', min: -10, max: 3, step: 0.1, value: 0, slide: changeBandGain });
+	}
+      }
+      
+      var changeBandGain = function() {
+	alert('yoyoma');
+      }
+
+      var plotCoeffs = function() {
+	freqz = new Float32Array(grapheq.freqzs[0].length);
+
+	for (var i=0; i<freqz.length; i++) {
+	  for (var j=0; j<grapheq.freqzs.length; j++) {
+	    freqz[i] += grapheq.freqzs[j][i];
+	  }
+	}
+      }
+
+      function audioWritten(event) {
+        signal = event.mozFrameBuffer;
+
+        // Apply the filter to the signal
+        signal = grapheq.processStereo(signal);
+
+        output.mozWriteAudio([]); // flush
+        output.mozWriteAudio(signal);
+        writeCount++;
+      }
+    </script>
+    
+    <script type="application/processing" target="#signal">
+	// Draw axes
+	float yMin = -12;
+	float yMax = 3;
+	float yCenter = 0;
+	
+	float xMin = 0;
+	float xMax = PI;
+	float xCenter = 0;
+
+      void setup() {
+        size(300, 200);
+        grapheq = new GraphicalEq(sampleRate);
+        grapheq.recalculateFilters();
+        plotCoeffs();
+	createSliders();
+        
+        stroke(255);
+        strokeWeight(1);
+        frameRate(20);
+      }
+      
+      void draw() {
+        background(255);
+
+	stroke(0);
+	line(map(xCenter, xMin, xMax, 0, width), map(yMin, yMin, yMax, height, 0), map(xCenter, xMin, xMax, 0, width), map(yMax, yMin, yMax, height, 0)); 
+	line(map(xMin, xMin, xMax, 0, width), map(yCenter, yMin, yMax, height, 0), map(xMax, xMin, xMax, 0, width), map(yCenter, yMin, yMax, height, 0)); 
+      
+	// Draw the response
+	noFill();
+	stroke(10, 40, 200);
+	beginShape();
+        for (int i = 0; i < response.length; i++) {
+          vertex(map(i, 0, response.length, 0, width), map(response[i], yMin, yMax, height, 0));
+        }
+	endShape();
+      }
+
+      void mousePressed() {
+	int ind = (int)map(mouseX, 0, width, 0, grapheq.filters.length-1);
+	float gain = map(mouseY, 0, height, yMax, yMin);
+	grapheq.setBandGain(ind, gain);
+	plotCoeffs();
+      }
+    </script>
+    
+    <h1>Graphical Equalizer</h1>
+    <h3>by <a href="http://www.ricardmarxer.com/blog">Ricard Marxer</a></h3>
+    <p>Applies a Graphical Equalizer filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
+    <p>The filter implementation will become part of the <a href="https://wiki.mozilla.org/Audio_Data_API_JS_Library">dsp.js</a> library.</p> 
+    <p>You will need a recent build of Mozilla Firefox with the Audio API to hear the filtered version.</p>
+
+    <audio id='input' tabindex="0" src="audio/corban-peddle.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 100%;"></audio><br>
+
+    <div style="width: 100%;">
+      <div><canvas id="signal" width="50%" height="200px" style="float: left;"></canvas></div>
+      
+      <div class="control" style="float: right; height: 188px">
+        <h3>Graphical Equalizer</h3>
+        <table>
+          <tr>
+            <td><div id="minFreq" class="slider"></div>Min Freq</td>
+            <td><div id="maxFreq" class="slider"></div>Max Freq</td>
+            <td><div id="bandsPerOctave" class="slider"></div>BPO</td>
+	    <span id="bandSliders"></span>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1200,38 +1200,41 @@ GraphicalEq = function(sampleRate) {
   this.filters = []
   this.freqzs = []
 
+  this.calculateFreqzs = true;
+
   this.recalculateFilters = function() {
     var bandCount = Math.round(Math.log(this.maxFreq/this.minFreq) * this.bandsPerOctave/ Math.LN2);
 
     this.filters = [];
     for (var i=0; i<bandCount; i++) {
-      var freq = this.minFreq*(Math.pow(2, i/bpo));
-      var filter = Biquad(DSP.PEAKING_EQ, this.FS);
-      filter.setDbGain(0);
-      filter.setBW(1/this.bandsPerOctave);
-      this.filters[i] = filter;
+      var freq = this.minFreq*(Math.pow(2, i/this.bandsPerOctave));
+      var newFilter = new Biquad(DSP.PEAKING_EQ, this.FS);
+      newFilter.setDbGain(0);
+      newFilter.setBW(1/this.bandsPerOctave);
+      newFilter.setF0(freq);
+      this.filters[i] = newFilter;
       this.recalculateFreqz(i);
     }
   }
 
   this.setMinimumFrequency = function(freq) {
     this.minFreq = freq;
-    recalculateFilters();
+    this.recalculateFilters();
   }
 
   this.setMaximumFrequency = function(freq) {
     this.maxFreq = freq;
-    recalculateFilters();
+    this.recalculateFilters();
   }
 
   this.setBandsPerOctave = function(bands) {
     this.bandsPerOctave = bands;
-    recalculateFilters();
+    this.recalculateFilters();
   }
 
   this.setBandGain = function(bandIndex, gain) {
-    if (!bandIndex || bandIndex < 0 || bandIndex > (this.filters.length-1)) {
-      throw "The band index of the graphical equalizer is out of bounds."
+    if (bandIndex < 0 || bandIndex > (this.filters.length-1)) {
+      throw "The band index of the graphical equalizer is out of bounds. " + bandIndex + " is out of [" + 0 + ", " + this.filters.length-1 + "]";
       return;
     }
 
@@ -1245,22 +1248,27 @@ GraphicalEq = function(sampleRate) {
   }
   
   this.recalculateFreqz = function(bandIndex) {
-    if (!bandIndex || bandIndex < 0 || bandIndex > (this.filters.length-1)) {
-      throw "The band index of the graphical equalizer is out of bounds."
+    if (!this.calculateFreqzs) {
+      return;
+    }
+
+    
+    if (bandIndex < 0 || bandIndex > (this.filters.length-1)) {
+      throw "The band index of the graphical equalizer is out of bounds. " + bandIndex + " is out of [" + 0 + ", " + this.filters.length-1 + "]"
       return;
     }
         
     if (!this.w) {
-      this.w = Array(200);
+      this.w = Float32Array(200);
       for (var i=0; i<this.w.length; i++) {
          this.w[i] = Math.PI/this.w.length * i;
       }
     }
     
-    var b = [this.filter[i].b0, this.filter[i].b1, this.filter[i].b2];
-    var a = [this.filter[i].a0, this.filter[i].a1, this.filter[i].a2];
+    var b = [this.filters[bandIndex].b0, this.filters[bandIndex].b1, this.filters[bandIndex].b2];
+    var a = [this.filters[bandIndex].a0, this.filters[bandIndex].a1, this.filters[bandIndex].a2];
 
-    this.freqzs[i] = DSP.mag2db(DSP.freqz(b, a, this.w));
+    this.freqzs[bandIndex] = DSP.mag2db(DSP.freqz(b, a, this.w));
   }
 
   this.process = function(buffer) {
