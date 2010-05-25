@@ -103,15 +103,14 @@
       }
 
       var createSliders = function() {
-	$('bandSliders').empty();
+	$('#bandSliders').empty();
 	for (var i=0; i<grapheq.filters.length; i++) {
-	  $('bandSliders').add('<td><div id="b_'+i+'" class="slider"></div>'+grapheq.filters[i].f0+' Hz</td>');
-	  $('b_'+i).slider({ orientation: 'vertical', range: 'min', min: -10, max: 3, step: 0.1, value: 0, slide: changeBandGain });
+	  $('#bandSliders').append('<td><div id="b_'+i+'" class="slider"></div>'+grapheq.filters[i].f0.toFixed(2)+' Hz</td>');
+	  $('#b_'+i).slider({ orientation: 'vertical', range: 'min', min: -10, max: 3, step: 0.1, value: 0, slide: changeBandGain });
 	}
       }
       
       var changeBandGain = function() {
-	alert('yoyoma');
       }
 
       var plotCoeffs = function() {
@@ -201,10 +200,16 @@
             <td><div id="minFreq" class="slider"></div>Min Freq</td>
             <td><div id="maxFreq" class="slider"></div>Max Freq</td>
             <td><div id="bandsPerOctave" class="slider"></div>BPO</td>
-	    <span id="bandSliders"></span>
           </tr>
         </table>
       </div>
     </div>
+
+  <div class="control" style="width: 100%; float: left;">
+    <table> 
+     <tr id="bandSliders">
+     </tr>
+    </table>
+  </div>
   </body>
 </html>
