@@ -48,6 +48,13 @@ DSP = {
   RECTANGULAR:    9,
   TRIANGULAR:     10,
 
+  // Loop modes
+  OFF:            0,
+  FW:             1,
+  FWBW:           2,
+  BW:             3,
+    
+
   // Math
   TWO_PI:         2*Math.PI
 };
@@ -296,6 +303,83 @@ FFT.prototype.forward = function(buffer) {
   }
 };
 
+Sampler = function Sampler(file, bufferSize, sampleRate, playStart, playEnd, loopStart, loopEnd, loopMode) {
+  this.file = file;
+  this.bufferSize = bufferSize;
+  this.sampleRate = sampleRate;
+  this.playStart  = playStart || 0; // 0%
+  this.playEnd    = playEnd   || 1; // 100%
+  this.loopStart  = loopStart || 0;
+  this.loopEnd    = loopEnd   || 1;
+  this.loopMode   = loopMode  || DSP.OFF;
+  this.loaded     = false;
+  this.samples    = [];
+  this.signal     = new Float32Array(bufferSize);
+  this.frameCount = 0;
+  this.envelope = null;
+  this.amplitude = 1;
+  this.rootFrequency = 110; // A2
+  this.frequency = 550;
+  this.step = this.frequency / this.rootFrequency;
+    
+  var self = this;
+  
+  this.loadSamples = function(event) {
+    var buffer = DSP.getChannel(DSP.MIX, event.mozFrameBuffer);
+    for ( var i = 0; i < buffer.length; i++) {
+      self.samples.push(buffer[i]);
+    }
+    //console.log("buffering: " + self.samples.length + " samples");
+  };
+  
+  this.loadComplete = function() {
+    // convert flexible js array into a fast typed array
+    self.samples = new Float32Array(self.samples);
+    self.loaded = true;
+    //console.log("Finished Buffering");
+  };
+  
+  var audio = new Audio();
+  audio.src = file;
+  audio.addEventListener("audiowritten", this.loadSamples, false);
+  audio.addEventListener("ended", this.loadComplete, false);
+  audio.muted = true;
+  audio.play();
+};
+
+Sampler.prototype.applyEnvelope = function() {
+  this.envelope.process(this.signal);
+  return this.signal;
+};
+
+Sampler.prototype.generate = function() {
+  var frameOffset = this.frameCount * this.bufferSize;
+  
+  var offset;
+
+  for ( var i = 0; i < this.bufferSize; i++ ) {
+    offset = Math.round((frameOffset + i) * this.step + (this.playStart * this.samples.length));
+    if (offset < (this.playEnd * this.samples.length) ) {
+      this.signal[i] = this.samples[offset] * this.amplitude;
+    } else {
+      this.signal[i] = 0;
+    }
+  }
+
+  if (offset > (this.playEnd * this.samples.length) && this.envelope.isActive() ) {
+    //this.envelope.noteOff();
+  }
+
+  this.frameCount++;
+
+  return this.signal;
+};
+
+Sampler.prototype.setFreq = function(frequency) {
+  this.frequency = frequency;
+  this.step = this.frequency / this.rootFrequency;
+};
+
 /**
  * Oscillator class for generating and modifying signals
  *
@@ -420,6 +504,10 @@ Oscillator.prototype.addSignal = function(signal) {
 Oscillator.prototype.addEnvelope = function(envelope) {
   this.envelope = envelope;
 };
+
+Oscillator.prototype.applyEnvelope = function() {
+  this.envelope.process(this.signal);
+};
       
 Oscillator.prototype.valueAt = function(offset) {
   return this.waveTable[offset % this.waveTableLength];
@@ -464,6 +552,8 @@ Oscillator.Pulse = function(step) {
 };
   
 ADSR = function(attackLength, decayLength, sustainLevel, sustainLength, releaseLength, sampleRate) {
+  this.sampleRate = sampleRate;
+  // Length in seconds
   this.attackLength  = attackLength;
   this.decayLength   = decayLength;
   this.sustainLevel  = sustainLevel;
@@ -471,22 +561,36 @@ ADSR = function(attackLength, decayLength, sustainLevel, sustainLength, releaseL
   this.releaseLength = releaseLength;
   this.sampleRate    = sampleRate;
   
+  // Length in samples
   this.attackSamples  = attackLength  * sampleRate;
   this.decaySamples   = decayLength   * sampleRate;
   this.sustainSamples = sustainLength * sampleRate;
   this.releaseSamples = releaseLength * sampleRate;
   
-  this.attack         =                this.attackSamples;
-  this.decay          = this.attack  + this.decaySamples;
-  this.sustain        = this.decay   + this.sustainSamples;
-  this.release        = this.sustain + this.releaseSamples;
-    
+  // Updates the envelope sample positions
+  this.update = function() {
+    this.attack         =                this.attackSamples;
+    this.decay          = this.attack  + this.decaySamples;
+    this.sustain        = this.decay   + this.sustainSamples;
+    this.release        = this.sustain + this.releaseSamples;
+  };
+  
+  this.update();
+  
   this.samplesProcessed = 0;
 };
 
 
-ADSR.prototype.trigger = function() {
+ADSR.prototype.noteOn = function() {
   this.samplesProcessed = 0;
+  this.sustainSamples = this.sustainLength * this.sampleRate;
+  this.update();
+};
+
+// Send a note off when using a sustain of infinity to let the envelope enter the release phase
+ADSR.prototype.noteOff = function() {
+  this.sustainSamples = this.samplesProcessed - this.decaySamples;
+  this.update();
 };
 
 ADSR.prototype.processSample = function(sample) {
@@ -523,24 +627,6 @@ ADSR.prototype.value = function() {
       
 ADSR.prototype.process = function(buffer) {
   for ( var i = 0; i < buffer.length; i++ ) {
-    /*
-    var amplitude = 0;
-    
-    if ( this.samplesProcessed <= this.attack ) {
-      amplitude = 0 + (1 - 0) * ((this.samplesProcessed - 0) / (this.attack - 0));
-    } else if ( this.samplesProcessed > this.attack && this.samplesProcessed <= this.decay ) {
-      amplitude = 1 + (this.sustainLevel - 1) * ((this.samplesProcessed - this.attack) / (this.decay - this.attack));
-    } else if ( this.samplesProcessed > this.decay && this.samplesProcessed <= this.sustain ) {
-      amplitude = this.sustainLevel;
-    } else if ( this.samplesProcessed > this.sustain && this.samplesProcessed <= this.release ) {
-      amplitude = this.sustainLevel + (0 - this.sustainLevel) * ((this.samplesProcessed - this.sustain) / (this.release - this.sustain));
-    }
-    
-    buffer[i] *= amplitude;
-
-    this.samplesProcessed++;
-    */
-
     buffer[i] *= this.value();
 
     this.samplesProcessed++;
@@ -551,11 +637,15 @@ ADSR.prototype.process = function(buffer) {
       
       
 ADSR.prototype.isActive = function() {
-  if ( this.samplesProcessed > this.release ) {
+  if ( this.samplesProcessed > this.release || this.samplesProcessed === -1 ) {
     return false;
   } else {
     return true;
   }
+};
+
+ADSR.prototype.disable = function() {
+  this.samplesProcessed = -1;
 };
   
 IIRFilter = function(type, cutoff, resonance, sampleRate) {

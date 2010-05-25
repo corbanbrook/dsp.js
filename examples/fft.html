@@ -17,24 +17,15 @@
       var fft = new FFT(bufferSize, 44100);
 
       function audioWritten(event) {
-        var mozSignal = event.mozFrameBuffer;
-
-        /*
-        for ( var i = 0; i < mozSignal.length / 2; i++ ) {
-          // Assuming interlaced stereo channels, need to split and merge into a stero-mix mono signal
-          signal[i] = (mozSignal[2*i] + mozSignal[2*i+1]) / 2; 
-        }
-        */ 
-        
         // deinterleave and mix down to mono
-        signal = DSP.getChannel(DSP.MIX, mozSignal);
+        signal = DSP.getChannel(DSP.MIX, event.mozFrameBuffer);
 
         // perform forward transform
         fft.forward(signal);
         
         // calculate peak values
         for ( var i = 0; i < bufferSize; i++ ) {
-          fft.spectrum[i] *= -1 * Math.log((signal.length/2 - i) * (0.5/signal.length/2)) * 2048; // equalize, attenuates low freqs and boosts highs
+          fft.spectrum[i] *= -1 * Math.log((fft.bufferSize/2 - i) * (0.5/fft.bufferSize/2)) * fft.bufferSize; // equalize, attenuates low freqs and boosts highs
           
           if ( peak[i] < fft.spectrum[i] ) {
             peak[i] = fft.spectrum[i];

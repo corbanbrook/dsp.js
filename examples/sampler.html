@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- Load JQuery and JQuery-UI -->
+    <link type="text/css" href="css/hot-sneaks/jquery-ui-1.8.custom.css" rel="stylesheet" />  
+    <script type="text/javascript" src="js/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.8.custom.min.js"></script>
+    
+    <!-- Load Processing.js -->
+    <script language="javascript" src="js/processing.js"></script>
+    <script language="javascript" src="js/init.js"></script>
+
+    <!-- Load DSP.js -->
+    <script src="../dsp.js"></script>
+    <script>
+    </script>
+
+    <style type="text/css">
+    </style>
+  </head>
+  <body>
+    <script>
+      // Setup shared variables
+      var sampleRate = 44100;
+      var bufferSize = 2048;
+      var bufferTime = Math.floor(1000 / (sampleRate / bufferSize));
+      
+      var amplitude  = 0.1; // Default amplitude at 70%
+
+      var oct = 3; // Root Octave
+
+      var oscs = [];
+      var noteOn = [];
+      var playSample = false;
+
+      // Borrowed from F1LTER's code
+      var midiNoteFreq =  [ 16.35,    17.32,    18.35,    19.45,    20.6,     21.83,    23.12,    24.5,     25.96,    27.5,  29.14,    30.87,
+                          32.7,     34.65,    36.71,    38.89,    41.2,     43.65,    46.25,    49,       51.91,    55,    58.27,    61.74,
+                          65.41,    69.3,     73.42,    77.78,    82.41,    87.31,    92.5,     98,       103.83,   110,   116.54,   123.47,
+                          130.81,   138.59,   146.83,   155.56,   164.81,   174.61,   185,      196,      207.65,   220,   233.08,   246.94,
+                          261.63,   277.18,   293.66,   311.13,   329.63,   349.23,   369.99,   392,      415.3,    440,   466.16,   493.88,
+                          523.25,   554.37,   587.33,   622.25,   659.26,   698.46,   739.99,   783.99,   830.61,   880,   932.33,   987.77,
+                          1046.5,   1108.73,  1174.66,  1244.51,  1318.51,  1396.91,  1479.98,  1567.98,  1661.22,  1760,  1864.66,  1975.53,
+                          2093,     2217.46,  2349.32,  2489.02,  2637.02,  2793.83,  2959.96,  3135.96,  3322.44,  3520,  3729.31,  3951.07,
+                          4186.01,  4434.92,  4698.64,  4978 ];
+
+      var silence = new Float32Array(bufferSize);
+
+      // Setup audio channel
+      var output = new Audio();
+      if ( typeof output.mozSetup === 'function' ) {
+        output.mozSetup(1, sampleRate, 1);
+      }
+      
+      var timePerWrite = 0;
+      var programStart;
+      
+      var s = new Sampler('audio/c.ogg', bufferSize, sampleRate);
+      s.envelope = new ADSR(0, 0, 1, Infinity, 0, sampleRate);
+      s.envelope.disable(); // turn off so it does not auto trigger
+      
+      var audioWriter = function() {
+        if (s.loaded) {
+          var startTime = (new Date()).getTime();        
+        
+          if ( programStart === undefined ) {
+             programStart = new Date();
+          }
+        
+          var additiveSignal;
+        
+          if ( s.envelope.isActive() ) {
+            s.generate();
+            additiveSignal = s.applyEnvelope();
+          }
+        
+          // Set the global osc object
+          if ( typeof  additiveSignal === 'undefined' ) {
+            additiveSignal = silence;
+          }
+
+          // Flush buffer  
+          output.mozWriteAudio([]);
+        
+          // Write next audio frame
+          output.mozWriteAudio(additiveSignal);
+
+          var endTime = (new Date()).getTime();
+        
+          timePerWrite = endTime - startTime;
+        }
+      }
+      
+
+    </script>
+      
+    <script target="#keyboard" type="application/processing">
+      void setup() {
+        size(1024, 200);
+        
+        setInterval(audioWriter, bufferTime); // start audioWriter timer      
+        stroke(255);
+        frameRate(20);
+      }
+
+      void draw() { 
+        background(255);
+        fill(0)
+        stroke(255);
+        if ( s.loaded ) {
+          if ( s.envelope.isActive() ) {
+          } else {
+            s.frameCount = 0; // reset the sampler frameCount
+          }
+          text("Sample Loaded. Octave: " + oct, 0, 20);
+        } else {
+          text("Loading sample: " + s.samples.length, 0, 20);   
+          var step = s.samples.length / width;
+          var len = s.samples.length;
+          /*for ( int i = 0; i < Math.floor(len/step) - 1; i++) {
+            line(i, height/2 - s.samples[i*step] * 100, i+1, height/2 - s.samples[(i+1)*step] * 100);
+          }*/
+          noStroke();
+          beginShape();
+          stroke(0, 100);
+          fill(0, 50);
+          for ( int i = 0; i < Math.floor(s.samples.length/step); i++) {
+            if (s.samples[i*step] > 0) {
+              vertex(i, height/2 - s.samples[i*step] * 100);
+            }
+          }
+          for ( int i = Math.floor(s.samples.length/step) -1; i > -1; i--) {
+            if (s.samples[i*step] > 0) {
+              vertex(i, height/2 - -s.samples[i*step] * 100);
+            }
+          }
+          endShape(); 
+        }
+        
+        if ( s.loaded ) {
+          var step = s.samples.length / width;
+            
+          if (s.playStart > s.playEnd) {
+            s.playEnd = s.playStart;
+          }
+                    
+          var playStartPos = Math.floor(s.playStart * s.samples.length / step);
+          var playEndPos = Math.floor(s.playEnd * s.samples.length / step);
+          var sampleEndPos = Math.floor(s.samples.length / step);
+
+          
+          
+          
+          if (playStartPos) {
+            stroke(0, 100);
+            fill(0, 50);
+            beginShape();
+            for ( int i = 0; i < playStartPos; i++) {
+              if (s.samples[i*step] > 0) {
+                vertex(i, height/2 - s.samples[i*step] * 100);
+              }
+            }
+            for ( int i = playStartPos -1; i >= 0; i--) {
+              if (s.samples[i*step] > 0) {
+                vertex(i, height/2 - -s.samples[i*step] * 100);
+              }
+            }
+            endShape();
+          }
+          
+          if (playStartPos - playEndPos) {
+            stroke(255, 0, 0, 100);
+            fill(255, 0, 0, 50);
+            beginShape();
+            for ( int i = playStartPos; i < playEndPos; i++) {
+              if (s.samples[i*step] > 0) {
+                vertex(i, height/2 - s.samples[i*step] * 100);
+              }
+            }
+            for ( int i = playEndPos -1; i >= playStartPos; i--) {
+              if (s.samples[i*step] > 0) {
+                vertex(i, height/2 - -s.samples[i*step] * 100);
+              }
+            }
+            endShape();
+          }
+          
+          if (playEndPos < sampleEndPos) {
+            stroke(0, 100);
+            fill(0, 50);
+            beginShape();
+            for ( int i = playEndPos; i < sampleEndPos; i++) {
+              if (s.samples[i*step] > 0) {
+                vertex(i, height/2 - s.samples[i*step] * 100);
+              }
+            }
+            for ( int i = sampleEndPos -1; i >= playEndPos; i--) {
+              if (s.samples[i*step] > 0) {
+                vertex(i, height/2 - -s.samples[i*step] * 100);
+              }
+            }
+            endShape();
+          }
+          
+          // DRAW PLAY POSITION
+          stroke(0);
+          var pos = (s.frameCount * s.bufferSize * s.step + (s.playStart * s.samples.length)) / step;
+          if (pos >= playStartPos && pos <= playEndPos) {
+            line(pos, 0, pos, height);
+          }
+          
+          stroke(255, 0, 0);
+          line(s.playStart * width, 0, s.playStart * width, height);
+          
+          line(s.playEnd * width, 0, s.playEnd * width, height);
+          
+        }
+      }
+
+      void keyPressed() {
+        var semi;
+        
+        if ( key == 'z' ) {   // C
+          semi = 0;
+        }
+        
+          if ( key == 's' ) { // C#
+            semi = 1;
+          }
+          
+        if ( key == 'x' ) {   // D
+          semi = 2;
+        }
+        
+          if ( key == 'd' ) { // D#
+            semi = 3;
+          }
+        
+        if ( key == 'c' ) {   // E
+          semi = 4;
+        }
+        
+        if ( key == 'v' ) {   // F
+          semi = 5;
+        }
+        
+          if ( key == 'g' ) { // F#
+            semi = 6;
+          }
+          
+        if ( key == 'b' ) {   // G
+          semi = 7;
+        }
+        
+          if ( key == 'h' ) { // G#
+            semi = 8;
+          }
+        
+        if ( key == 'n' ) {   // A
+          semi = 9;
+        }
+        
+          if ( key == 'j' ) { // A#
+            semi = 10;
+          }
+        
+        if ( key == 'm' ) {   // B
+          semi = 11;
+        }
+        
+        if ( key == '=') { // increase octave
+          oct++;
+        }
+        
+        if ( key == '-') { // descrease octave 
+          oct--;
+        }
+        
+        if (typeof semi !== 'undefined' && s.loaded) {
+          s.envelope.noteOn();
+          s.setFreq(midiNoteFreq[12*oct+semi]);
+        }
+      }
+      
+      void keyReleased() {
+        if ( s.envelope.isActive() ) {
+          s.envelope.noteOff();
+        }
+      }
+      
+      void mouseClicked() {
+        if (mouseButton == LEFT) {
+          s.playStart = mouseX / width;
+        }
+        if (mouseButton == RIGHT) {
+          s.playEnd = mouseX / width;
+        }
+
+      }
+      
+    </script>
+    <!--<audio id='input' tabindex="0" src="audio/chord.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio>-->
+    <h1>Sampler</h1>
+    <canvas id="keyboard" width="200px" height="200px"></canvas>
+    <h2>Playing sample</h2>
+    <p>Bottom row keys z to m are the white keys of one octave of a piano.</p>
+    <p>Middle row keys s,d  and g,h,j are the black keys of one octave of a piano</p>
+    <p>- and = decrease or increase the octave</p>
+    <h2>Setting play start and end region</h2>
+    <p>Clicking on the sample with the left button will set the start pos and the right will set the end pos</p>
+  </body>
+</html>
