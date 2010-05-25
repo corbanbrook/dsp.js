@@ -1195,7 +1195,7 @@ GraphicalEq = function(sampleRate) {
   this.minFreq = 40.0;
   this.maxFreq = 16000.0;
 
-  this.bandsPerOctave = 2.0;
+  this.bandsPerOctave = 1.0;
 
   this.filters = []
   this.freqzs = []
@@ -1234,7 +1234,7 @@ GraphicalEq = function(sampleRate) {
 
   this.setBandGain = function(bandIndex, gain) {
     if (bandIndex < 0 || bandIndex > (this.filters.length-1)) {
-      throw "The band index of the graphical equalizer is out of bounds. " + bandIndex + " is out of [" + 0 + ", " + this.filters.length-1 + "]";
+      throw "The band index of the graphical equalizer is out of bounds.";
       return;
     }
 
@@ -1242,7 +1242,8 @@ GraphicalEq = function(sampleRate) {
       throw "A gain must be passed."
       return;
     }
-
+    
+    
     this.filters[bandIndex].setDbGain(gain);
     this.recalculateFreqz(bandIndex);
   }
