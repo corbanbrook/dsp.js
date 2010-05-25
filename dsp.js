@@ -1260,7 +1260,7 @@ GraphicalEq = function(sampleRate) {
     }
         
     if (!this.w) {
-      this.w = Float32Array(200);
+      this.w = Float32Array(400);
       for (var i=0; i<this.w.length; i++) {
          this.w[i] = Math.PI/this.w.length * i;
       }

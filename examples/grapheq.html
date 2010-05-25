@@ -74,7 +74,7 @@
       var writeCount = 0;
 
       var signal = new Float32Array(2048);
-      var response = [0];
+      var freqz = [0];
 
       var grapheq;
 
@@ -112,24 +112,8 @@
       
       var changeBandGain = function(event, ui) {
 	grapheq.setBandGain(ui.handle.parentNode.id.split("_")[1], ui.value);
+        plotCoeffs();
       }
-
-function getMethods(obj, short) {
-  var result = [];
-  for (var id in obj) {
-    try {
-      if (short) {
-        result.push(id + ": " + typeof(obj[id]));
-      } else {
-	result.push(id + ": " + obj[id].toString());
-      }
-    } catch (err) {
-      result.push(id + ": inaccessible");
-    }
-  }
-  return result;
-}
-
 
       var plotCoeffs = function() {
 	freqz = new Float32Array(grapheq.freqzs[0].length);
@@ -155,8 +139,8 @@ function getMethods(obj, short) {
     
     <script type="application/processing" target="#signal">
 	// Draw axes
-	float yMin = -12;
-	float yMax = 3;
+	float yMin = -60;
+	float yMax = 12;
 	float yCenter = 0;
 	
 	float xMin = 0;
@@ -164,7 +148,7 @@ function getMethods(obj, short) {
 	float xCenter = 0;
 
       void setup() {
-        size(300, 200);
+        size(700, 200);
         grapheq = new GraphicalEq(sampleRate);
         grapheq.recalculateFilters();
         plotCoeffs();
@@ -177,7 +161,11 @@ function getMethods(obj, short) {
       
       void draw() {
         background(255);
-
+	
+	noFill();
+	stroke(127);
+	rect(0, 0, width, height);
+      
 	stroke(0);
 	line(map(xCenter, xMin, xMax, 0, width), map(yMin, yMin, yMax, height, 0), map(xCenter, xMin, xMax, 0, width), map(yMax, yMin, yMax, height, 0)); 
 	line(map(xMin, xMin, xMax, 0, width), map(yCenter, yMin, yMax, height, 0), map(xMax, xMin, xMax, 0, width), map(yCenter, yMin, yMax, height, 0)); 
@@ -186,32 +174,23 @@ function getMethods(obj, short) {
 	noFill();
 	stroke(10, 40, 200);
 	beginShape();
-        for (int i = 0; i < response.length; i++) {
-          vertex(map(i, 0, response.length, 0, width), map(response[i], yMin, yMax, height, 0));
+        for (int i = 0; i < freqz.length; i++) {
+          vertex(map(i, 0, freqz.length, 0, width), map(freqz[i], yMin, yMax, height, 0));
         }
 	endShape();
       }
 
-      void mousePressed() {
-	int ind = (int)map(mouseX, 0, width, 0, grapheq.filters.length-1);
-	float gain = map(mouseY, 0, height, yMax, yMin);
-	grapheq.setBandGain(ind, gain);
-	plotCoeffs();
-      }
     </script>
     
     <h1>Graphical Equalizer</h1>
     <h3>by <a href="http://www.ricardmarxer.com/blog">Ricard Marxer</a></h3>
-    <p>Applies a Graphical Equalizer filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
-    <p>The filter implementation will become part of the <a href="https://wiki.mozilla.org/Audio_Data_API_JS_Library">dsp.js</a> library.</p> 
     <p>You will need a recent build of Mozilla Firefox with the Audio API to hear the filtered version.</p>
-
-    <audio id='input' tabindex="0" src="audio/corban-peddle.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 100%;"></audio><br>
-
+    <audio id='input' style="float: left; height:70px; width: 100%" tabindex="0" src="audio/corban-peddle.ogg" controls="true" onaudiowritten="audioWritten(event);"></audio></br>
+    <p></br></br></p>    
     <div style="width: 100%;">
       <div><canvas id="signal" width="50%" height="200px" style="float: left;"></canvas></div>
       
-      <div class="control" style="float: right; height: 188px">
+      <div class="control" style="float: right; height: 200px">
         <h3>Graphical Equalizer</h3>
         <table>
           <tr>
@@ -223,7 +202,9 @@ function getMethods(obj, short) {
       </div>
     </div>
 
-  <div class="control" style="width: 100%; float: left;">
+    <p></br></br></br></p>    
+
+   <div class="control" style="width: 100%; float: left;">
     <table> 
      <tr id="bandSliders">
      </tr>
