@@ -1,9 +1,10 @@
 /*
-* This code searches for all the <script type="application/processing" target="canvasid">
-* in your page and loads each script in the target canvas with the proper id.
-* It is useful to smooth the process of adding Processing code in your page and starting
-* the Processing.js engine.
-*/
+ * This code searches for all the <script type="application/processing" target="canvasid">
+ * in your page and loads each script in the target canvas with the proper id.
+ * It is useful to smooth the process of adding Processing code in your page and starting
+ * the Processing.js engine.
+ */
+
 if ( window.addEventListener ) {
   window.addEventListener("load", function() {
     var scripts = document.getElementsByTagName("script");
@@ -16,12 +17,13 @@ if ( window.addEventListener ) {
         if ( src && src.indexOf("#") > -1 ) {
           canvas = document.getElementById( src.substr( src.indexOf("#") + 1 ) );
         } else {
-          while ( canvas && canvas.nodeName.toUpperCase() != "CANVAS" )
-          canvas = canvas.nextSibling;
+          while ( canvas && canvas.nodeName.toUpperCase() != "CANVAS" ) {
+            canvas = canvas.nextSibling;
+          }
         }
  
         if ( canvas ) {
-          Processing(canvas, scripts[i].text);
+          new Processing(canvas, scripts[i].text);
         }
       }
     }
