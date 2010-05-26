@@ -90,8 +90,16 @@
           timePerWrite = endTime - startTime;
         }
       }
-      
 
+      $(function() {
+        $('#loop_mode').change(changeLoopMode);
+        
+        changeLoopMode(); // reset to default value
+      });
+      
+      var changeLoopMode = function() {
+        s.loopMode = parseInt($('#loop_mode').val());
+      };
     </script>
       
     <script target="#keyboard" type="application/processing">
@@ -110,28 +118,28 @@
         if ( s.loaded ) {
           if ( s.envelope.isActive() ) {
           } else {
-            s.frameCount = 0; // reset the sampler frameCount
+            s.reset();
           }
           text("Sample Loaded. Octave: " + oct, 0, 20);
         } else {
-          text("Loading sample: " + s.samples.length, 0, 20);   
-          var step = s.samples.length / width;
-          var len = s.samples.length;
-          /*for ( int i = 0; i < Math.floor(len/step) - 1; i++) {
-            line(i, height/2 - s.samples[i*step] * 100, i+1, height/2 - s.samples[(i+1)*step] * 100);
-          }*/
+          var loadPercent = s.samples.length / (s.duration * sampleRate);
+          text("Loading: " + Math.round(loadPercent * 100) + "%", 0, 20);   
+          
+          //var step = s.samples.length / width;
+          var step = Math.floor(s.duration * sampleRate / width);
+          
           noStroke();
           beginShape();
           stroke(0, 100);
           fill(0, 50);
           for ( int i = 0; i < Math.floor(s.samples.length/step); i++) {
             if (s.samples[i*step] > 0) {
-              vertex(i, height/2 - s.samples[i*step] * 100);
+              vertex(i + width - s.samples.length/step, height/2 - s.samples[i*step] * 100);
             }
           }
           for ( int i = Math.floor(s.samples.length/step) -1; i > -1; i--) {
             if (s.samples[i*step] > 0) {
-              vertex(i, height/2 - -s.samples[i*step] * 100);
+              vertex(i + width - s.samples.length/step, height/2 - -s.samples[i*step] * 100);
             }
           }
           endShape(); 
@@ -204,7 +212,7 @@
           
           // DRAW PLAY POSITION
           stroke(0);
-          var pos = (s.frameCount * s.bufferSize * s.step + (s.playStart * s.samples.length)) / step;
+          var pos = s.playhead / step;
           if (pos >= playStartPos && pos <= playEndPos) {
             line(pos, 0, pos, height);
           }
@@ -302,6 +310,16 @@
     <!--<audio id='input' tabindex="0" src="audio/chord.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio>-->
     <h1>Sampler</h1>
     <canvas id="keyboard" width="200px" height="200px"></canvas>
+    <div>
+    <b>Loop Mode:</b>
+    <select id="loop_mode">
+      <option value="0" selected="selected">Off</option>
+      <option value="1">FW</option>
+      <option value="2">BW</option>
+      <option value="3">FW-BW</option>
+    </select>
+    <div>
+    
     <h2>Playing sample</h2>
     <p>Bottom row keys z to m are the white keys of one octave of a piano.</p>
     <p>Middle row keys s,d  and g,h,j are the black keys of one octave of a piano</p>

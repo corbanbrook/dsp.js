@@ -51,9 +51,8 @@ DSP = {
   // Loop modes
   OFF:            0,
   FW:             1,
-  FWBW:           2,
-  BW:             3,
-    
+  BW:             2,
+  FWBW:           3,
 
   // Math
   TWO_PI:         2*Math.PI
@@ -316,12 +315,16 @@ Sampler = function Sampler(file, bufferSize, sampleRate, playStart, playEnd, loo
   this.samples    = [];
   this.signal     = new Float32Array(bufferSize);
   this.frameCount = 0;
-  this.envelope = null;
-  this.amplitude = 1;
-  this.rootFrequency = 110; // A2
-  this.frequency = 550;
-  this.step = this.frequency / this.rootFrequency;
-    
+  this.envelope   = null;
+  this.amplitude  = 1;
+  this.rootFrequency = 110; // A2 110
+  this.frequency  = 550;
+  this.step       = this.frequency / this.rootFrequency;
+  this.duration   = 0;
+  this.samplesProcessed = 0;
+  this.playhead   = 0;
+  
+  var audio = new Audio();
   var self = this;
   
   this.loadSamples = function(event) {
@@ -329,20 +332,22 @@ Sampler = function Sampler(file, bufferSize, sampleRate, playStart, playEnd, loo
     for ( var i = 0; i < buffer.length; i++) {
       self.samples.push(buffer[i]);
     }
-    //console.log("buffering: " + self.samples.length + " samples");
   };
   
   this.loadComplete = function() {
     // convert flexible js array into a fast typed array
     self.samples = new Float32Array(self.samples);
     self.loaded = true;
-    //console.log("Finished Buffering");
   };
   
-  var audio = new Audio();
+  this.loadMetaData = function() {
+    self.duration = audio.duration;
+  };
+  
   audio.src = file;
   audio.addEventListener("audiowritten", this.loadSamples, false);
   audio.addEventListener("ended", this.loadComplete, false);
+  audio.addEventListener("loadedmetadata", this.loadMetaData, false)
   audio.muted = true;
   audio.play();
 };
@@ -355,19 +360,48 @@ Sampler.prototype.applyEnvelope = function() {
 Sampler.prototype.generate = function() {
   var frameOffset = this.frameCount * this.bufferSize;
   
+  var loopWidth = this.playEnd * this.samples.length - this.playStart * this.samples.length;
+  var playStartSamples = this.playStart * this.samples.length; // ie 0.5 -> 50% of the length
+  var playEndSamples = this.playEnd * this.samples.length; // ie 0.5 -> 50% of the length
   var offset;
 
   for ( var i = 0; i < this.bufferSize; i++ ) {
-    offset = Math.round((frameOffset + i) * this.step + (this.playStart * this.samples.length));
-    if (offset < (this.playEnd * this.samples.length) ) {
-      this.signal[i] = this.samples[offset] * this.amplitude;
-    } else {
-      this.signal[i] = 0;
+    switch (this.loopMode) {
+      case DSP.OFF:
+        this.playhead = Math.round(this.samplesProcessed * this.step + playStartSamples);
+        if (this.playhead < (this.playEnd * this.samples.length) ) {
+          this.signal[i] = this.samples[this.playhead] * this.amplitude;
+        } else {
+          this.signal[i] = 0;
+        }
+        break;
+      
+      case DSP.FW:
+        this.playhead = Math.round((this.samplesProcessed * this.step) % loopWidth + playStartSamples);
+        if (this.playhead < (this.playEnd * this.samples.length) ) {
+          this.signal[i] = this.samples[this.playhead] * this.amplitude;
+        }
+        break;
+        
+      case DSP.BW:
+        this.playhead = playEndSamples - Math.round((this.samplesProcessed * this.step) % loopWidth);
+        if (this.playhead < (this.playEnd * this.samples.length) ) {
+          this.signal[i] = this.samples[this.playhead] * this.amplitude;
+        }
+        break;
+        
+      case DSP.FWBW:
+        if ( Math.floor(this.samplesProcessed * this.step / loopWidth) % 2 == 0 ) {
+          this.playhead = Math.round((this.samplesProcessed * this.step) % loopWidth + playStartSamples);
+        } else {
+          this.playhead = playEndSamples - Math.round((this.samplesProcessed * this.step) % loopWidth);
+        }   
+        if (this.playhead < (this.playEnd * this.samples.length) ) {
+          this.signal[i] = this.samples[this.playhead] * this.amplitude;
+        }
+        break;
     }
-  }
-
-  if (offset > (this.playEnd * this.samples.length) && this.envelope.isActive() ) {
-    //this.envelope.noteOff();
+    this.samplesProcessed++;
   }
 
   this.frameCount++;
@@ -378,6 +412,11 @@ Sampler.prototype.generate = function() {
 Sampler.prototype.setFreq = function(frequency) {
   this.frequency = frequency;
   this.step = this.frequency / this.rootFrequency;
+};
+
+Sampler.prototype.reset = function() {
+  this.samplesProcessed = 0;
+  this.playhead = 0;
 };
 
 /**
