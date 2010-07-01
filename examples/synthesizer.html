@@ -244,10 +244,7 @@
 
       var timeStamp = (new Date()).getTime();  
       
-      var silence = new Array(bufferSize);
-      for ( var i = 0; i < bufferSize; i++) {
-        silence[i] = 0;
-      }
+      var silence = new Float32Array(bufferSize);
 
       // Setup audio channel
       var a = new Audio();
@@ -273,7 +270,6 @@
           for ( var i = 0; i < oscPool.length; i++ ) {
             // Generate new frame of the signal
             if ( oscPool[i].envelope.isActive() ) {
-              
               oscPool[i].osc1.generate(); // This generates a new frameBuffer of signal and applies the envelope as it goes.
               oscPool[i].osc2.generate(); 
               
@@ -557,7 +553,7 @@
             "Sequencer BPM: " + bpm + "<br>" +
             "Sequencer steps/second: " + sequencerTicksPerMillisecond * 1000 + "<br>" +
             "Active oscillators (polyphony): " + oscPool.length + "<br>" +
-            "Frame rate: " + FRAME_RATE.toFixed(1)
+            "Frame rate: " + frameRate.toFixed(1)
           );
         }
       }

@@ -4,7 +4,7 @@
     <!-- Load JQuery and JQuery-UI -->
     <link type="text/css" href="css/hot-sneaks/jquery-ui-1.8.custom.css" rel="stylesheet" />  
     <script type="text/javascript" src="js/jquery-1.4.2.min.js"></script>
-    <script type="text/javascript" src="js/jquery-ui-1.8.custom.min.js"></script>
+    <!--<script type="text/javascript" src="js/jquery-ui-1.8.custom.min.js"></script>-->
     
     <!-- Load Processing.js -->
     <script language="javascript" src="js/processing.js"></script>
@@ -13,10 +13,12 @@
     <!-- Load DSP.js -->
     <script src="../dsp.js"></script>
     <script>
+      /*
       $(function() {
         $('#cutoff').slider({ orientation: 'vertical', range: 'min', min: 60, max: 5000, step: 1, value: 880, slide: changeFilter });
         $('#res').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 20.0, value: 1.0, step: 0.01, slide: changeFilter });
       });
+      */
     </script>
 
     <style type="text/css">
@@ -65,7 +67,7 @@
       // Setup shared variables
       var sampleRate = 44100;
       
-      var signal = new Float32Array(2048);
+      var signal = new Float32Array(1024);
       var lp12;
 
 
@@ -80,6 +82,11 @@
         lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
       }
 
+      function loadedMetaData(event) {
+        var audio = document.getElementById('input');
+        audio.mozFrameBufferLength = 4096;
+      }
+
       function audioWritten(event) {
         signal = DSP.getChannel(DSP.MIX, event.mozFrameBuffer);
         
@@ -92,43 +99,127 @@
     </script>
     
     <script type="application/processing" target="#signal">
+      Knob cut;
+      Knob res;
+
       void setup() {
         size(512, 200);
+
+        cut = new Knob("", 60, 5000, 880, 70, 20, 50, 50);        
+        res = new Knob("", 1, 20, 1, 0.4, 20, 100, 50);        
+
         lp12 = new IIRFilter(DSP.LOWPASS, 22050, 0, sampleRate);
-        lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
+        //lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
 
         // mute the input
         document.getElementById('input').muted = true;
 
-        stroke(255);
-        strokeWeight(1);
-        frameRate(20);
+        stroke(255, 0, 0);
       }
       
       void draw() {
-        background(100, 100, 200);
+        background(255);
+        lp12.set(cut.value, res.value);
         for (int i = 0; i < width; i++) {
-          line(i, height/2 - signal[4*i]/2 * 200, i, height/2 + signal[4*i]/2 * 200);
+          line(i, height/2 - signal[2*i]/2 * 200, i, height/2 + signal[2*i]/2 * 200);
+        }
+        fill(255, 0, 0);
+        text("F", 30, 30);
+        text("Q", 75, 30);
+        ellipse(52, 52, 40, 40);
+        ellipse(102, 52, 40, 40);
+
+        fill(255);
+        cut.draw();
+        res.draw();
+      }
+
+      class Knob {
+        float radius;
+        float x;
+        float y;
+        boolean active;
+        float mouseYInit;
+        float value;
+        float min;
+        float max;
+        float step;
+        float percent;
+        float angle;
+        String label;
+
+        Knob(label, min, max, value, step, radius, x, y) {
+          this.radius = radius;
+          this.x = x;
+          this.y = y;
+          this.active = false;
+          this.value = value;
+          this.min = min;
+          this.max = max;
+          this.step = step;
+          this.label = label;
+        }
+
+        void draw() {
+          textSize(12);
+          ellipseMode(CENTER);
+          if (mousePressed) {
+            if (this.isOver() && !this.active && !Knob.active) {
+              this.active = true;
+              this.mouseYInit = mouseY;
+              Knob.active = true;
+            } else if (this.active) {
+              this.value += (this.mouseYInit - mouseY) * this.step;
+              this.value = constrain(this.value, min, max);
+              this.mouseYInit = mouseY;
+            }
+          } else {
+            this.active = false;
+            Knob.active = false;
+          }
+          
+          this.percent =  (this.value - this.min) / (this.max - this.min);
+          this.angle = map(this.value, this.min, this.max, radians(-130), radians(130));
+          pushMatrix();
+            translate(this.x, this.y);
+            rotate(this.angle);
+            ellipse(0, 0, 2*this.radius, 2*this.radius);
+            line(0, 0, 0, -this.radius);
+          popMatrix();
+          /*
+          text(this.label, this.x - this.radius -5, this.y - this.radius - 5);
+          text(this.value, this.x+this.radius+5, this.y);
+          text(round(this.percent * 100) + "%", this.x+this.radius+5, this.y+20);
+          */
+        }
+
+        boolean isOver() {
+          if (mouseX > this.x - this.radius && 
+              mouseX < this.x + this.radius &&
+              mouseY > this.y - this.radius &&
+              mouseY < this.y + this.radius) {
+              return true;
+          }
+          return false;
         }
       }
+
     </script>
     
     <h1>Audio Filter</h1>
     <p>Applies a Low pass filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
     <p>The low pass filter acts as a gate, only letting frequencies below the cut off value through.</p> 
-    
-    <p>The <b>F</b> slider controls the cut off frequency, between 0 and 22050 Hz.</p>
-    <p>The <b>Q</b>
-    slider controls the resonance drive.</p>
+    <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onloadedmetadata="loadedMetaData(event);" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio><br>
+    <div><canvas id="signal" width="512px" height="200px"></canvas></div>
+
+    <p>The <b>F</b> knob controls the cut off frequency, between 0 and 22050 Hz.</p>
+    <p>The <b>Q</b> knob controls the resonance drive.</p>
     <p>A low frequency cutoff and strong resonance can give an acidy or dampened underwater effect.</p>
     <p>(Be careful! Adjust your volume! Certain slider combinations can give off loud undesired schreeching noises!)</p>
     <p>Music: Delv-X: Megaman theme (cover)</p>
-    <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio><br>
 
-    <div style="width: 620px;">
-      <div><canvas id="signal" width="512px" height="200px" style="float: left;"></canvas></div>
       
-      <div class="control" style="float: right; height: 188px">
+<!--  <div class="control" style="float: right; height: 188px">
         <h3>Low Pass Filter</h3>
         <table>
           <tr>
@@ -137,6 +228,6 @@
           </tr>
         </table>
       </div>
-    </div>
+    </div>-->
   </body>
 </html>
