@@ -247,7 +247,8 @@ FFT.prototype.forward = function(buffer) {
       imag            = this.imag,
       spectrum        = this.spectrum;
 
-  if ( bufferSize % 2 !== 0 )         { throw "Invalid buffer size, must be a power of 2."; }
+  var k = Math.floor(Math.log(bufferSize) / Math.LN2);
+  if ( Math.pow(2, k) !== bufferSize ) { throw "Invalid buffer size, must be a power of 2."; }
   if ( bufferSize !== buffer.length ) { throw "Supplied buffer is not the same size as defined FFT. FFT Size: " + bufferSize + " Buffer Size: " + buffer.length; }
 
   for ( var i = 0; i < bufferSize; i++ ) {
