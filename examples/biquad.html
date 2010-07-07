@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- Load JQuery and JQuery-UI -->
+    <link type="text/css" href="css/hot-sneaks/jquery-ui-1.8.custom.css" rel="stylesheet" />  
+    <script type="text/javascript" src="js/jquery-1.4.2.min.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.8.custom.min.js"></script>
+    
+    <!-- Load Processing.js -->
+    <script language="javascript" src="js/processing.js"></script>
+    <script language="javascript" src="js/init.js"></script>
+
+    <!-- Load DSP.js -->
+    <script src="../dsp.js"></script>
+    <script>
+      $(function() {
+        $('#freq').slider({ orientation: 'vertical', range: 'min', min: 60, max: 10000, step: 1, value: 880, slide: changeF0 });
+        $('#q').slider({ orientation: 'vertical', range: 'min', min: 0.01, max: 115.0, value: 1.0, step: 0.001, slide: changeQ });
+        $('#bw').slider({ orientation: 'vertical', range: 'min', min: 0.01, max: 10.0, value: 1.0, step: 0.001, slide: changeBW });
+        $('#s').slider({ orientation: 'vertical', range: 'min', min: 0.0, max: 5.0, value: 1.0, step: 0.001, slide: changeS });
+        $('#dbgain').slider({ orientation: 'vertical', range: 'min', min: -30.0, max: 30.0, value: 12.0, step: 1, slide: changeDbGain });
+	$('#filtertype').buttonset();
+	$('#filtertype > input').each(function() { 
+					 $(this).button().click( changeFilterType );
+				      });
+	$('#input').attr('volume', 0);
+      });
+    </script>
+
+    <style type="text/css">
+      body, * {
+        font-family: Arial, sans-serif;
+      }
+      .control {
+        padding: 5px;
+        border: 1px outset #CCC;
+        background-color: #EEE;
+        float: left;
+        margin-right: 5px;
+      }
+      .control table td {
+        padding: 10px;
+        width: 20px;
+        color: #999;
+        font-size: 12px;
+      }
+      .control h3 {
+        margin: 0;
+        padding:0;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .control #debug {
+        border: 1px inset #ccc;
+        background-color: #FFF;
+        font-size: 12px;
+        width: 300px;
+        padding: 10px;
+      }
+      .slider {
+        margin-bottom: 16px;
+        width: 8px;
+      }
+
+      .ui-button {
+        font-size: xx-small;
+      }
+      
+      .ui-slider .ui-slider-handle {
+        width: 8px;
+        margin-left: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      // Setup shared variables
+      var sampleRate = 44100;
+      
+      var response = [];
+      var writeCount = 0;
+
+      var signal = new Float32Array(2048);
+
+      var biquad;
+
+      var output = new Audio();
+
+      if ( typeof output.mozSetup === 'function' ) {
+        output.mozSetup(2, sampleRate, 1);
+      }
+
+      var plotCoeffs = function() {
+	var b = [biquad.b0, biquad.b1, biquad.b2];
+	var a = [biquad.a0, biquad.a1, biquad.a2];
+	
+	w = Array(200);
+	for (var i=0;i<w.length; i++) {
+	  w[i] = Math.PI/w.length * i;
+	}
+	
+	response = DSP.mag2db(DSP.freqz(b, a, w));
+	//response = DSP.freqz(b, a);
+      }
+
+      var changeFilterType = function() {
+	biquad.setFilterType(DSP[$('#filtertype>input:checked').next().text()]);
+	plotCoeffs();
+      }
+
+      var changeF0 = function() {
+	biquad.setF0($('#freq').slider('option', 'value'));
+	plotCoeffs();
+      }
+    
+      var changeBW = function() {
+	biquad.setBW($('#bw').slider('option', 'value'));
+	plotCoeffs();
+      }
+
+      var changeS = function() {
+	biquad.setS($('#s').slider('option', 'value'));
+	plotCoeffs();
+      }
+
+      var changeQ = function() {
+        biquad.setQ($('#q').slider('option', 'value'));
+	plotCoeffs();
+      }
+
+      var changeDbGain = function() {
+        biquad.setDbGain($('#dbgain').slider('option', 'value'));
+	plotCoeffs();
+      }
+
+      function audioWritten(event) {
+        signal = event.mozFrameBuffer;
+
+        // Apply the filter to the signal
+        signal = biquad.processStereo(signal);
+
+        output.mozWriteAudio([]); // flush
+        output.mozWriteAudio(signal);
+        writeCount++;
+      }
+    </script>
+    
+    <script type="application/processing" target="#signal">
+      void setup() {
+        size(300, 200);
+        biquad = new Biquad(DSP.BPF_CONSTANT_PEAK, sampleRate);
+	changeFilterType();
+        changeF0();
+	changeQ();
+	changeDbGain();
+
+        stroke(255);
+        strokeWeight(1);
+        frameRate(20);
+      }
+      
+      void draw() {
+        background(255);
+
+	// Draw axes
+	float yMin = -120;
+	float yMax = 60;
+	float yCenter = 0;
+	
+	float xMin = 0;
+	float xMax = PI;
+	float xCenter = 0;
+
+	stroke(0);
+	line(map(xCenter, xMin, xMax, 0, width), map(yMin, yMin, yMax, height, 0), map(xCenter, xMin, xMax, 0, width), map(yMax, yMin, yMax, height, 0)); 
+	line(map(xMin, xMin, xMax, 0, width), map(yCenter, yMin, yMax, height, 0), map(xMax, xMin, xMax, 0, width), map(yCenter, yMin, yMax, height, 0)); 
+      
+	// Draw the response
+	noFill();
+	stroke(10, 40, 200);
+	beginShape();
+        for (int i = 0; i < response.length; i++) {
+          vertex(map(i, 0, response.length, 0, width), map(response[i], yMin, yMax, height, 0));
+        }
+	endShape();
+      }
+    </script>
+    
+    <h1>Biquad Filter</h1>
+    <h3>by <a href="http://www.ricardmarxer.com/blog">Ricard Marxer</a></h3>
+    <p>Applies a Biquad filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
+    <p>The filter implementation will become part of the <a href="https://wiki.mozilla.org/Audio_Data_API_JS_Library">dsp.js</a> library.</p> 
+    <p>You will need a recent build of Mozilla Firefox with the Audio API to hear the filtered version.</p>
+
+    <audio id='input' tabindex="0" src="audio/corban-peddle.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 100%;"></audio><br>
+
+    <div style="width: 100%;">
+      <div><canvas id="signal" width="50%" height="200px" style="float: left;"></canvas></div>
+      
+      <div class="control" style="float: right; height: 188px">
+        <h3>Biquad Filter</h3>
+	<form>
+	  <span id="filtertype">
+		<input type="radio" id="lpf" name="filtertype" checked="checked" /><label for="lpf">LPF</label>
+		<input type="radio" id="hpf" name="filtertype" /><label for="hpf">HPF</label>
+		<input type="radio" id="bpf_constant_skirt" name="filtertype" /><label for="bpf_constant_skirt">BPF_CONSTANT_SKIRT</label>
+		<input type="radio" id="bpf_constant_peak" name="filtertype" /><label for="bpf_constant_peak">BPF_CONSTANT_PEAK</label>
+		<input type="radio" id="notch" name="filtertype" /><label for="notch">NOTCH</label>
+		<input type="radio" id="apf" name="filtertype" /><label for="apf">APF</label>
+		<input type="radio" id="peaking_eq" name="filtertype" /><label for="peaking_eq">PEAKING_EQ</label>
+		<input type="radio" id="low_shelf" name="filtertype" /><label for="low_shelf">LOW_SHELF</label>
+		<input type="radio" id="high_shelf" name="filtertype" /><label for="high_shelf">HIGH_SHELF</label>
+	  </span>
+	</form>
+        <table>
+          <tr>
+            <td><div id="freq" class="slider"></div>freq</td>
+            <td><div id="q" class="slider"></div>Q</td>
+            <td><div id="bw" class="slider"></div>BW</td>
+            <!--<td><div id="s" class="slider"></div>S</td>-->
+            <td><div id="dbgain" class="slider"></div>dBgain</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </body>
+</html>
