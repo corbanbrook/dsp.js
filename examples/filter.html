@@ -2,9 +2,7 @@
 <html>
   <head>
     <!-- Load JQuery and JQuery-UI -->
-    <link type="text/css" href="css/hot-sneaks/jquery-ui-1.8.custom.css" rel="stylesheet" />  
     <script type="text/javascript" src="js/jquery-1.4.2.min.js"></script>
-    <!--<script type="text/javascript" src="js/jquery-ui-1.8.custom.min.js"></script>-->
     
     <!-- Load Processing.js -->
     <script language="javascript" src="js/processing.js"></script>
@@ -12,14 +10,6 @@
 
     <!-- Load DSP.js -->
     <script src="../dsp.js"></script>
-    <script>
-      /*
-      $(function() {
-        $('#cutoff').slider({ orientation: 'vertical', range: 'min', min: 60, max: 5000, step: 1, value: 880, slide: changeFilter });
-        $('#res').slider({ orientation: 'vertical', range: 'min', min: 1.0, max: 20.0, value: 1.0, step: 0.01, slide: changeFilter });
-      });
-      */
-    </script>
 
     <style type="text/css">
       body, * {
@@ -66,9 +56,11 @@
     <script>
       // Setup shared variables
       var sampleRate = 44100;
+      var frameSize = 4096;
       
-      var signal = new Float32Array(1024);
+      var signal = new Float32Array(frameSize/2);
       var lp12;
+      var buffer = [];
 
 
       // Setup experimental audio out
@@ -84,17 +76,32 @@
 
       function loadedMetaData(event) {
         var audio = document.getElementById('input');
-        audio.mozFrameBufferLength = 4096;
+        audio.mozFrameBufferLength = frameSize;
       }
 
       function audioWritten(event) {
         signal = DSP.getChannel(DSP.MIX, event.mozFrameBuffer);
-        
-        // Apply the filter to the signal
         lp12.process(signal);
 
-        output.mozWriteAudio([]); // flush
-        output.mozWriteAudio(signal);
+        var audio = [];
+        for (var i = 0; i < signal.length; i++) {
+          audio[i] = signal[i];
+        }
+
+        // Apply the filter to the signal
+  
+        buffer = (buffer.length === 0) ?  audio : buffer.concat(audio);
+
+        var written = output.mozWriteAudio(audio);
+
+        if (written < buffer.length) {
+          buffer.slice(written);
+        } else {
+          buffer.length = 0;
+        }
+
+        //output.mozWriteAudio([]); // flush
+        //output.mozWriteAudio(signal);
       }
     </script>
     
@@ -105,11 +112,10 @@
       void setup() {
         size(512, 200);
 
-        cut = new Knob("", 60, 5000, 880, 70, 20, 50, 50);        
-        res = new Knob("", 1, 20, 1, 0.4, 20, 100, 50);        
+        cut = new Knob("", 60, 6000, 2500, 70, 20, 50, 50);        
+        res = new Knob("", 1, 20, 7, 0.3, 20, 100, 50);        
 
         lp12 = new IIRFilter(DSP.LOWPASS, 22050, 0, sampleRate);
-        //lp12.set($('#cutoff').slider('option', 'value'), $('#res').slider('option', 'value'));
 
         // mute the input
         document.getElementById('input').muted = true;
@@ -120,8 +126,8 @@
       void draw() {
         background(255);
         lp12.set(cut.value, res.value);
-        for (int i = 0; i < width; i++) {
-          line(i, height/2 - signal[2*i]/2 * 200, i, height/2 + signal[2*i]/2 * 200);
+        for (int i = 0; i < width; i+=2) {
+          line(i, height/2 - signal[4*i]/2 * 200, i, height/2 + signal[4*i]/2 * 200);
         }
         fill(255, 0, 0);
         text("F", 30, 30);
@@ -215,19 +221,7 @@
     <p>The <b>F</b> knob controls the cut off frequency, between 0 and 22050 Hz.</p>
     <p>The <b>Q</b> knob controls the resonance drive.</p>
     <p>A low frequency cutoff and strong resonance can give an acidy or dampened underwater effect.</p>
-    <p>(Be careful! Adjust your volume! Certain slider combinations can give off loud undesired schreeching noises!)</p>
+    <p>(Be careful! Adjust your volume! Certain knob combinations can give off loud undesired schreeching noises!)</p>
     <p>Music: Delv-X: Megaman theme (cover)</p>
-
-      
-<!--  <div class="control" style="float: right; height: 188px">
-        <h3>Low Pass Filter</h3>
-        <table>
-          <tr>
-            <td><div id="cutoff" class="slider"></div>F</td>
-            <td><div id="res" class="slider"></div>Q</td>
-          </tr>
-        </table>
-      </div>
-    </div>-->
   </body>
 </html>

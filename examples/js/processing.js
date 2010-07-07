@@ -7200,12 +7200,8 @@
 
       this.toImageData = function() {
         // changed for 0.9
-        if (this.imageData instanceof Image) {
-          return this.imageData;
-        } else {
-          var canvasData = getCanvasData(this.imageData);
-          return canvasData.context.getImageData(0, 0, this.width, this.height);
-        }
+        var canvasData = getCanvasData(this.imageData);
+        return canvasData.context.getImageData(0, 0, this.width, this.height);
       };
 
       this.toDataURL = function() {
@@ -7224,11 +7220,7 @@
       this.fromHTMLImageData = function(htmlImg) {
         // convert an <img> to a PImage
         var canvasData = getCanvasData(htmlImg);
-        try {
-          var imageData = canvasData.context.getImageData(0, 0, htmlImg.width, htmlImg.height);
-        } catch(e) {
-          var imageData = htmlImg;
-        }
+        var imageData = canvasData.context.getImageData(0, 0, htmlImg.width, htmlImg.height);
         this.fromImageData(imageData);
       };
 

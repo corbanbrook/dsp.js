@@ -27,7 +27,7 @@
       
       var amplitude  = 0.1; // Default amplitude at 70%
 
-      var oct = 3; // Root Octave
+      var oct = 2; // Root Octave
 
       var oscs = [];
       var noteOn = [];
@@ -55,10 +55,35 @@
       var timePerWrite = 0;
       var programStart;
       
+      // load the voice formant
+      var v = new Sampler('audio/formant.ogg', bufferSize, sampleRate);
+      v.envelope = new ADSR(0, 0, 1, Infinity, 0, sampleRate);
+      v.envelope.disable(); // turn off so it does not auto trigger
+
+      // load the synth carrier
       var s = new Sampler('audio/carrier.ogg', bufferSize, sampleRate);
       s.envelope = new ADSR(0, 0, 1, Infinity, 0, sampleRate);
       s.envelope.disable(); // turn off so it does not auto trigger
-      
+      s.loopMode = 3; // back and forth loop
+
+      var fftcar = new FFT(bufferSize, sampleRate);
+      var fftmod = new FFT(bufferSize, sampleRate);
+
+      var hann = new WindowFunction(DSP.HANN);
+
+      var real = new Float32Array(bufferSize);
+      var imag = new Float32Array(bufferSize);
+
+      var spec1, spec2;
+
+      var numBands = 20;
+      var bands = [];
+
+      for (var i = 0; i < bufferSize/2; i+= Math.round((bufferSize/2)/numBands) ) {
+        bands.push(i);  
+      }
+      bands[bands.length-1] = bufferSize/2;
+
       var audioWriter = function() {
         if (s.loaded) {
           var startTime = (new Date()).getTime();        
@@ -67,11 +92,53 @@
              programStart = new Date();
           }
         
-          var additiveSignal;
+          var carrier, formant, additiveSignal = [];
         
-          if ( s.envelope.isActive() ) {
+          if ( s.envelope.isActive() && v.envelope.isActive() ) {
+            s.generate();
+            v.generate();
+            carrier = s.applyEnvelope();
+            formant = v.applyEnvelope();
+
+            spec1 = fftcar.forward(hann.process(carrier));
+            spec2 = fftmod.forward(hann.process(formant));
+
+            for (var i = 0; i < numBands-1; i++) {
+              var totalReal = 0;
+              var totalImag = 0;
+              var count = 0;
+              for (var b = bands[i]; b < bands[i+1]; b++) {
+                totalReal += Math.abs(fftmod.real[b]);  
+                totalImag += Math.abs(fftmod.imag[b]);  
+                count++;
+              }
+              var meanReal = totalReal/count;
+              var meanImag = totalImag/count;
+              for (var b = bands[i]; b < bands[i+1]; b++) {
+                real[b] = fftcar.real[b] * meanReal;  
+                imag[b] = fftcar.imag[b] * meanImag;
+              }
+            }
+
+            additiveSignal = fftcar.inverse(real, imag);
+
+            /*
+            for (var i = 0; i < additiveSignal.length; i++) {
+              if (additiveSignal[i] > 0.8) {
+                additiveSignal[i] = 0.7;
+              } else if (additiveSignal[i] < -0.8) {
+                additiveSignal[i] = -0.7;
+              }
+              
+            }
+            */
+            
+          } else if ( s.envelope.isActive() ) {
             s.generate();
             additiveSignal = s.applyEnvelope();
+          } else if ( v.envelope.isActive() ) {
+            v.generate();
+            additiveSignal = v.applyEnvelope();
           }
         
           // Set the global osc object
@@ -90,21 +157,11 @@
           timePerWrite = endTime - startTime;
         }
       }
-
-      $(function() {
-        $('#loop_mode').change(changeLoopMode);
-        
-        changeLoopMode(); // reset to default value
-      });
-      
-      var changeLoopMode = function() {
-        s.loopMode = parseInt($('#loop_mode').val());
-      };
     </script>
       
     <script target="#keyboard" type="application/processing">
       void setup() {
-        size(1024, 200);
+        size(1024, 400);
         
         setInterval(audioWriter, bufferTime); // start audioWriter timer      
         stroke(255);
@@ -115,118 +172,53 @@
         background(255);
         fill(0)
         stroke(255);
-        if ( s.loaded ) {
-          if ( s.envelope.isActive() ) {
-          } else {
-            s.reset();
-          }
-          text("Sample Loaded. Octave: " + oct, 0, 20);
-        } else {
+        if (!s.loaded) {
           var loadPercent = s.samples.length / (s.duration * sampleRate);
-          text("Loading: " + Math.round(loadPercent * 100) + "%", 0, 20);   
-          
-          //var step = s.samples.length / width;
-          var step = Math.floor(s.duration * sampleRate / width);
-          
-          noStroke();
-          beginShape();
-          stroke(0, 100);
-          fill(0, 50);
-          for ( int i = 0; i < Math.floor(s.samples.length/step); i++) {
-            if (s.samples[i*step] > 0) {
-              vertex(i + width - s.samples.length/step, height/2 - s.samples[i*step] * 100);
-            }
-          }
-          for ( int i = Math.floor(s.samples.length/step) -1; i > -1; i--) {
-            if (s.samples[i*step] > 0) {
-              vertex(i + width - s.samples.length/step, height/2 - -s.samples[i*step] * 100);
-            }
-          }
-          endShape(); 
+          text("Loading carrier: " + Math.round(loadPercent * 100) + "%", 0, 20);   
         }
-        
-        if ( s.loaded ) {
-          var step = s.samples.length / width;
-            
-          if (s.playStart > s.playEnd) {
-            s.playEnd = s.playStart;
-          }
-                    
-          var playStartPos = Math.floor(s.playStart * s.samples.length / step);
-          var playEndPos = Math.floor(s.playEnd * s.samples.length / step);
-          var sampleEndPos = Math.floor(s.samples.length / step);
+        if (!v.loaded) {
+          var loadPercent = v.samples.length / (v.duration * sampleRate);
+          text("Loading formant: " + Math.round(loadPercent * 100) + "%", 0, 40);   
+        }
 
-          
-          
-          
-          if (playStartPos) {
-            stroke(0, 100);
-            fill(0, 50);
-            beginShape();
-            for ( int i = 0; i < playStartPos; i++) {
-              if (s.samples[i*step] > 0) {
-                vertex(i, height/2 - s.samples[i*step] * 100);
-              }
-            }
-            for ( int i = playStartPos -1; i >= 0; i--) {
-              if (s.samples[i*step] > 0) {
-                vertex(i, height/2 - -s.samples[i*step] * 100);
-              }
-            }
-            endShape();
+        if ( s.loaded && v.loaded ) {
+          /*
+          // Draw formant:
+          stroke(0, 0, 255);
+          for (int i = 0; i < v.samples.length; i+=100) {
+             line(i/100, 50-v.samples[i]*50, i/100, 50+v.samples[i]*50); 
           }
-          
-          if (playStartPos - playEndPos) {
-            stroke(255, 0, 0, 100);
-            fill(255, 0, 0, 50);
-            beginShape();
-            for ( int i = playStartPos; i < playEndPos; i++) {
-              if (s.samples[i*step] > 0) {
-                vertex(i, height/2 - s.samples[i*step] * 100);
-              }
-            }
-            for ( int i = playEndPos -1; i >= playStartPos; i--) {
-              if (s.samples[i*step] > 0) {
-                vertex(i, height/2 - -s.samples[i*step] * 100);
-              }
-            }
-            endShape();
-          }
-          
-          if (playEndPos < sampleEndPos) {
-            stroke(0, 100);
-            fill(0, 50);
-            beginShape();
-            for ( int i = playEndPos; i < sampleEndPos; i++) {
-              if (s.samples[i*step] > 0) {
-                vertex(i, height/2 - s.samples[i*step] * 100);
-              }
-            }
-            for ( int i = sampleEndPos -1; i >= playEndPos; i--) {
-              if (s.samples[i*step] > 0) {
-                vertex(i, height/2 - -s.samples[i*step] * 100);
-              }
-            }
-            endShape();
-          }
-          
-          // DRAW PLAY POSITION
-          stroke(0);
-          var pos = s.playhead / step;
-          if (pos >= playStartPos && pos <= playEndPos) {
-            line(pos, 0, pos, height);
-          }
-          
+          // Draw carrier
           stroke(255, 0, 0);
-          line(s.playStart * width, 0, s.playStart * width, height);
-          
-          line(s.playEnd * width, 0, s.playEnd * width, height);
-          
+          for (int i = 0; i < s.samples.length; i+=100) {
+             line(i/100, 150-s.samples[i]*50, i/100, 150+s.samples[i]*50); 
+          }
+          */
+
+          noStroke();
+          fill(0);
+          for (var i = 0; i < bufferSize/4; i+= 4) {
+            if (real[i] && imag[i]) {
+              rect(i, 100, 2, - fftmod.spectrum[i] * 1000);
+            }
+          }
+          fill(0);
+          for (var i = 0; i < bufferSize/4; i+= 4) {
+            if (real[i] && imag[i]) {
+              rect(i, 200, 2, - fftcar.spectrum[i] * 1000);
+            }
+          }
+          fill(255, 0, 0);
+          for (var i = 0; i < bufferSize/4; i+= 4) {
+            if (real[i] && imag[i]) {
+              rect(i, height, 2, - (Math.sqrt(real[i] * real[i] + imag[i] * imag[i])) / bufferSize * 1000);
+            }
+          }
         }
       }
 
       void keyPressed() {
-        var semi;
+        var semi = undefined;
         
         if ( key == 'z' ) {   // C
           semi = 0;
@@ -284,47 +276,49 @@
           oct--;
         }
         
-        if (typeof semi !== 'undefined' && s.loaded) {
+        if (typeof semi !== 'undefined' && s.loaded && v.loaded) {
           s.envelope.noteOn();
           s.setFreq(midiNoteFreq[12*oct+semi]);
+          v.envelope.noteOn();
+          v.setFreq(midiNoteFreq[12*oct+semi]);
+        }
+
+        if (key == 'w') {
+          s.envelope.noteOn();
+          s.setFreq(midiNoteFreq[12*oct]);
+        }
+        if (key == 'q') {
+          v.envelope.noteOn();
+          v.setFreq(midiNoteFreq[12*oct]);
+        }
+        if (key == 'e') {
+          s.envelope.noteOn();
+          s.setFreq(midiNoteFreq[12*oct]);
+          v.envelope.noteOn();
+          v.setFreq(midiNoteFreq[12*oct]);
         }
       }
       
       void keyReleased() {
         if ( s.envelope.isActive() ) {
           s.envelope.noteOff();
+          s.reset();
+        }
+        if ( v.envelope.isActive() ) {
+          v.envelope.noteOff();
+          v.reset();
         }
       }
-      
-      void mouseClicked() {
-        if (mouseButton == LEFT) {
-          s.playStart = mouseX / width;
-        }
-        if (mouseButton == RIGHT) {
-          s.playEnd = mouseX / width;
-        }
-
-      }
-      
     </script>
-    <!--<audio id='input' tabindex="0" src="audio/chord.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio>-->
-    <h1>Sampler</h1>
+    <h1>Vocoder</h1>
     <canvas id="keyboard" width="200px" height="200px"></canvas>
-    <div>
-    <b>Loop Mode:</b>
-    <select id="loop_mode">
-      <option value="0" selected="selected">Off</option>
-      <option value="1">FW</option>
-      <option value="2">BW</option>
-      <option value="3">FW-BW</option>
-    </select>
-    <div>
     
     <h2>Playing sample</h2>
+    <p><b>Q</b> Play the voice formant sample</p>
+    <p><b>W</b> Play the carrier synth sample</p>
+    <p><b>E</b> Play the vocoded sample</p>
     <p>Bottom row keys z to m are the white keys of one octave of a piano.</p>
     <p>Middle row keys s,d  and g,h,j are the black keys of one octave of a piano</p>
     <p>- and = decrease or increase the octave</p>
-    <h2>Setting play start and end region</h2>
-    <p>Clicking on the sample with the left button will set the start pos and the right will set the end pos</p>
   </body>
 </html>
