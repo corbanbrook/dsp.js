@@ -1205,7 +1205,7 @@ Biquad = function(type, sampleRate) {
         this.a0 =   1 + alpha;
         this.a1 =  -2*cosw0;
         this.a2 =   1 - alpha;
-	break;
+	      break;
 
       case DSP.BPF_CONSTANT_PEAK:       // H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
         this.b0 =   alpha;
@@ -1214,7 +1214,7 @@ Biquad = function(type, sampleRate) {
         this.a0 =   1 + alpha;
         this.a1 =  -2*cosw0;
         this.a2 =   1 - alpha;
-	break;
+	      break;
 
       case DSP.NOTCH:     // H(s) = (s^2 + 1) / (s^2 + s/Q + 1)
         this.b0 =   1;
@@ -1223,7 +1223,7 @@ Biquad = function(type, sampleRate) {
         this.a0 =   1 + alpha;
         this.a1 =  -2*cosw0;
         this.a2 =   1 - alpha;
-	break;
+	      break;
 
       case DSP.APF:       // H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
         this.b0 =   1 - alpha;
@@ -1232,7 +1232,7 @@ Biquad = function(type, sampleRate) {
         this.a0 =   1 + alpha;
         this.a1 =  -2*cosw0;
         this.a2 =   1 - alpha;
-	break;
+	      break;
 
       case DSP.PEAKING_EQ:  // H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
         this.b0 =   1 + alpha*A;
@@ -1241,27 +1241,27 @@ Biquad = function(type, sampleRate) {
         this.a0 =   1 + alpha/A;
         this.a1 =  -2*cosw0;
         this.a2 =   1 - alpha/A;
-	break;
+	      break;
 
       case DSP.LOW_SHELF:   // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
-	var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/this.S - 1) + 2*A );
+	      var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/this.S - 1) + 2*A );
         this.b0 =    A*( (A+1) - (A-1)*cosw0 + coeff );
         this.b1 =  2*A*( (A-1) - (A+1)*cosw0                   );
         this.b2 =    A*( (A+1) - (A-1)*cosw0 - coeff );
         this.a0 =        (A+1) + (A-1)*cosw0 + coeff;
         this.a1 =   -2*( (A-1) + (A+1)*cosw0                   );
         this.a2 =        (A+1) + (A-1)*cosw0 - coeff;
-	break;
+	      break;
 
       case DSP.HIGH_SHELF:   // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
-	var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/this.S - 1) + 2*A );
+	      var coeff = sinw0 * Math.sqrt( (A^2 + 1)*(1/this.S - 1) + 2*A );
         this.b0 =    A*( (A+1) + (A-1)*cosw0 + coeff );
         this.b1 = -2*A*( (A-1) + (A+1)*cosw0                   );
         this.b2 =    A*( (A+1) + (A-1)*cosw0 - coeff );
         this.a0 =        (A+1) - (A-1)*cosw0 + coeff;
         this.a1 =    2*( (A-1) - (A+1)*cosw0                   );
         this.a2 =        (A+1) - (A-1)*cosw0 - coeff;
-	break;
+	      break;
     }
     
     this.b0a0 = this.b0/this.a0;
@@ -1279,11 +1279,11 @@ Biquad = function(type, sampleRate) {
       var output = new Float32Array(len);
 
       for ( var i=0; i<buffer.length; i++ ) {
-	output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
-	this.y_2_l = this.y_1_l;
-	this.y_1_l = output[i];
-	this.x_2_l = this.x_1_l;
-	this.x_1_l = buffer[i];
+	      output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
+	      this.y_2_l = this.y_1_l;
+	      this.y_1_l = output[i];
+	      this.x_2_l = this.x_1_l;
+	      this.x_1_l = buffer[i];
       }
 
       return output;
@@ -1297,17 +1297,17 @@ Biquad = function(type, sampleRate) {
       var output = new Float32Array(len);
       
       for ( var i=0; i<len/2; i++ ) {
-	output[2*i] = this.b0a0*buffer[2*i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
-	this.y_2_l = this.y_1_l;
-	this.y_1_l = output[2*i];
-	this.x_2_l = this.x_1_l;
-	this.x_1_l = buffer[2*i];
+        output[2*i] = this.b0a0*buffer[2*i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
+	      this.y_2_l = this.y_1_l;
+	      this.y_1_l = output[2*i];
+	      this.x_2_l = this.x_1_l;
+	      this.x_1_l = buffer[2*i];
 
-	output[2*i+1] = this.b0a0*buffer[2*i+1] + this.b1a0*this.x_1_r + this.b2a0*this.x_2_r - this.a1a0*this.y_1_r - this.a2a0*this.y_2_r;
-	this.y_2_r = this.y_1_r;
-	this.y_1_r = output[2*i+1];
-	this.x_2_r = this.x_1_r;
-	this.x_1_r = buffer[2*i+1];
+	      output[2*i+1] = this.b0a0*buffer[2*i+1] + this.b1a0*this.x_1_r + this.b2a0*this.x_2_r - this.a1a0*this.y_1_r - this.a2a0*this.y_2_r;
+	      this.y_2_r = this.y_1_r;
+	      this.y_1_r = output[2*i+1];
+	      this.x_2_r = this.x_1_r;
+	      this.x_1_r = buffer[2*i+1];
       }
 
       return output;
