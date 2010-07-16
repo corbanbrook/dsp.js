@@ -864,12 +864,20 @@ IIRFilter.LP12.prototype.addEnvelope = function(envelope) {
   this.envelope = envelope;
 };
 
+
+
 IIRFilter2 = function(type, cutoff, resonance, sampleRate) {
   this.type = type; 
   this.cutoff = cutoff;
   this.resonance = resonance;
   this.sampleRate = sampleRate;
 
+  this.f = Float32Array(4);
+  this.f[0] = 0.0; // lp
+  this.f[1] = 0.0; // hp
+  this.f[2] = 0.0; // bp
+  this.f[3] = 0.0; // br  
+  
   this.calcCoeff = function(cutoff, resonance) {
     this.freq = 2 * Math.sin(Math.PI * Math.min(0.25, cutoff/(this.sampleRate*2)));   
     this.damp = Math.min(2 * (1 - Math.pow(resonance, 0.25)), Math.min(2, 2/this.freq - this.freq * 0.5));
@@ -879,13 +887,8 @@ IIRFilter2 = function(type, cutoff, resonance, sampleRate) {
 };
 
 IIRFilter2.prototype.process = function(buffer) {
-  var input, output, lp, hp, bp, br;
-
-  var f = Array(4);
-  f[0] = 0; // lp
-  f[1] = 0; // hp
-  f[2] = 0; // bp
-  f[3] = 0; // br
+  var input, output;
+  var f = this.f;
 
   for ( var i = 0; i < buffer.length; i++ ) {
     input = buffer[i]; 
@@ -924,6 +927,8 @@ IIRFilter2.prototype.addEnvelope = function(envelope) {
 IIRFilter2.prototype.set = function(cutoff, resonance) {
   this.calcCoeff(cutoff, resonance); 
 };
+
+
 
 WindowFunction = function(type, alpha) {
   this.alpha = alpha;
