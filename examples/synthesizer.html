@@ -306,17 +306,18 @@
           oscPool = tmpPool;
           
           // Set the global osc object
-          if ( typeof mergedOsc != 'undefined' ) {
+          if ( typeof mergedOsc !== 'undefined' ) {
             osc = mergedOsc;
           } else {
             osc.signal = silence;
+            //osc.signal = undefined;
           }
 
           // Flush buffer  
           a.mozWriteAudio([]);
           
-          // Write next audio frame
-          a.mozWriteAudio(osc.signal);
+            // Write next audio frame
+            a.mozWriteAudio(osc.signal);
 
           writeCount++;
 
@@ -340,13 +341,14 @@
         osc = new Oscillator(osc1_waveform, 440, 0, bufferSize, sampleRate);
         
         setInterval(audioWriter, bufferTime); // start audioWriter timer        
+        frameRate(10);
       }
 
       void draw() {
         var startTime = (new Date()).getTime();
         
         int sequencerCol = Math.floor(sequencerStep) % 32;
-        background(0, 0, 30, 50);
+        background(0, 0, 30);
         
         var curCol = Math.floor(sequencerCol/2);
         var nextCol = (curCol + 1) % 17;

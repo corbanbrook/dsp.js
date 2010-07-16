@@ -145,9 +145,9 @@ DSP.LOW_SHELF = 7;   // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q
 DSP.HIGH_SHELF = 8;   // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
 
 // Biquad filter parameter types
-DSP.Q = 0;
-DSP.BW = 1;
-DSP.S = 2;
+DSP.Q = 1;
+DSP.BW = 2; // SHARED with BACKWARDS LOOP MODE
+DSP.S = 3;
 
 
 /** 
@@ -539,7 +539,6 @@ Oscillator = function Oscillator(type, frequency, amplitude, bufferSize, sampleR
 
   this.signal = new Float32Array(bufferSize);
   this.envelope = null;
-
 
   switch(parseInt(type)) {
     case DSP.TRIANGLE:

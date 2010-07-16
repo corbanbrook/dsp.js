@@ -22,7 +22,7 @@
     <script>
       // Setup shared variables
       var sampleRate = 44100;
-      var bufferSize = 2048;
+      var bufferSize = 1024;
       var bufferTime = Math.floor(1000 / (sampleRate / bufferSize));
       
       var amplitude  = 0.1; // Default amplitude at 70%
@@ -52,42 +52,44 @@
         output.mozSetup(1, sampleRate, 1);
       }
       
-      var timePerWrite = 0;
       var programStart;
-      
+      var writeCount = 0; 
+
       var s = new Sampler('audio/intergalactic.ogg', bufferSize, sampleRate);
       s.envelope = new ADSR(0, 0, 1, Infinity, 0, sampleRate);
       s.envelope.disable(); // turn off so it does not auto trigger
       
       var audioWriter = function() {
         if (s.loaded) {
-          var startTime = (new Date()).getTime();        
-        
           if ( programStart === undefined ) {
              programStart = new Date();
           }
         
-          var additiveSignal;
-        
-          if ( s.envelope.isActive() ) {
-            s.generate();
-            additiveSignal = s.applyEnvelope();
-          }
-        
-          // Set the global osc object
-          if ( typeof  additiveSignal === 'undefined' ) {
-            additiveSignal = silence;
-          }
+          while ( (new Date() - programStart) / 1000 * sampleRate / bufferSize >= writeCount ) {
+            var additiveSignal;
+          
+            if ( s.envelope.isActive() ) {
+              s.generate();
+              additiveSignal = s.applyEnvelope();
+            }
+          
+            /*
+            // This makes it fall out of sync for some reason.
+            if ( typeof  additiveSignal === 'undefined' ) {
+              additiveSignal = silence;
+            }
+            */
 
-          // Flush buffer  
-          output.mozWriteAudio([]);
-        
-          // Write next audio frame
-          output.mozWriteAudio(additiveSignal);
+            // Flush buffer  
+            output.mozWriteAudio([]);
+          
+            if (additiveSignal) {
+              // Write next audio frame
+              output.mozWriteAudio(additiveSignal);
 
-          var endTime = (new Date()).getTime();
-        
-          timePerWrite = endTime - startTime;
+            }
+            writeCount++;
+          }
         }
       }
 
@@ -129,9 +131,9 @@
           var step = Math.floor(s.duration * sampleRate / width);
           
           noStroke();
-          beginShape();
           stroke(0, 100);
           fill(0, 50);
+          beginShape();
           for ( int i = 0; i < Math.floor(s.samples.length/step); i++) {
             if (s.samples[i*step] > 0) {
               vertex(i + width - s.samples.length/step, height/2 - s.samples[i*step] * 100);
@@ -226,7 +228,7 @@
       }
 
       void keyPressed() {
-        var semi;
+        var semi = undefined;
         
         if ( key == 'z' ) {   // C
           semi = 0;
@@ -303,7 +305,6 @@
         if (mouseButton == RIGHT) {
           s.playEnd = mouseX / width;
         }
-
       }
       
     </script>
