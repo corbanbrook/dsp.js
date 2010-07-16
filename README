@@ -4,7 +4,8 @@
 DSP.js is a comprehensive digital signal processing library for javascript. 
 It includes many functions for signal analysis and generation, including 
 Oscillators(sine, saw, square, triangle), Window functions (Hann, Hamming, etc), 
-Envelopes(ADSR), IIR Filters(lowpass, highpass, bandpass, notch), FFT and DFT transforms.
+Envelopes(ADSR), IIR Filters(lowpass, highpass, bandpass, notch), FFT and DFT 
+transforms, Delay.
 
 Modules:
 
@@ -56,6 +57,13 @@ Modules:
     var filter = IIRFilter(LOWPASS, 200, 44100);
     filter.process(signal);
 
+
+  MultiDelay(maxDelayInSamplesSize, delayInSamples, masterVolume, delayVolume): Delay	
+  
+    Usage:
+
+    var delay = MultiDelay(44100*5, 44100*1, 1.0, 0.6);
+    delay.process(signal);  
 
 
 @corban                                                    weare.buildingsky.net
