@@ -21,11 +21,12 @@
       function loadedMetaData(event) {
         var audio = document.getElementById('input');
         audio.mozFrameBufferLength = frameBufferSize;
+        audio.addEventListener("MozAudioAvailable", audioAvailable, false);
       }
 
-      function audioWritten(event) {
+      function audioAvailable(event) {
         // deinterleave and mix down to mono
-        signal = DSP.getChannel(DSP.MIX, event.mozFrameBuffer);
+        signal = DSP.getChannel(DSP.MIX, event.frameBuffer);
 
         // perform forward transform
         fft.forward(signal);
@@ -76,7 +77,7 @@
       } 
     </script>
     
-    <audio id="input" src="audio/corban-peddle.ogg" controls="true" onloadedmetadata="loadedMetaData(event);" onaudiowritten="audioWritten(event);"></audio><br />
+    <audio id="input" src="audio/corban-peddle.ogg" controls="true" onloadedmetadata="loadedMetaData(event);"></audio><br />
     
     <div><canvas id="fft"></canvas></div>
   </body>

@@ -67,7 +67,7 @@
       var output = new Audio();
       
       if ( typeof output.mozSetup === 'function' ) {
-        output.mozSetup(1, sampleRate, 1);
+        output.mozSetup(1, sampleRate);
       }
 
       var changeFilter = function() {
@@ -77,10 +77,11 @@
       function loadedMetaData(event) {
         var audio = document.getElementById('input');
         audio.mozFrameBufferLength = frameSize;
+        audio.addEventListener("MozAudioAvailable", audioAvailable, false);
       }
 
-      function audioWritten(event) {
-        signal = DSP.getChannel(DSP.MIX, event.mozFrameBuffer);
+      function audioAvailable(event) {
+        signal = DSP.getChannel(DSP.MIX, event.frameBuffer);
         lp12.process(signal);
 
         var audio = [];
@@ -215,7 +216,7 @@
     <h1>Audio Filter</h1>
     <p>Applies a Low pass filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
     <p>The low pass filter acts as a gate, only letting frequencies below the cut off value through.</p> 
-    <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onloadedmetadata="loadedMetaData(event);" onaudiowritten="audioWritten(event);" style="width: 512px;"></audio><br>
+    <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onloadedmetadata="loadedMetaData(event);" style="width: 512px;"></audio><br>
     <div><canvas id="signal" width="512px" height="200px"></canvas></div>
 
     <p>The <b>F</b> knob controls the cut off frequency, between 0 and 22050 Hz.</p>

@@ -419,11 +419,11 @@ Sampler = function Sampler(file, bufferSize, sampleRate, playStart, playEnd, loo
   this.samplesProcessed = 0;
   this.playhead   = 0;
   
-  var audio = new Audio();
+  var audio = /* new Audio();*/ document.createElement("AUDIO");
   var self = this;
   
   this.loadSamples = function(event) {
-    var buffer = DSP.getChannel(DSP.MIX, event.mozFrameBuffer);
+    var buffer = DSP.getChannel(DSP.MIX, event.frameBuffer);
     for ( var i = 0; i < buffer.length; i++) {
       self.samples.push(buffer[i]);
     }
@@ -439,11 +439,11 @@ Sampler = function Sampler(file, bufferSize, sampleRate, playStart, playEnd, loo
     self.duration = audio.duration;
   };
   
-  audio.src = file;
-  audio.addEventListener("audiowritten", this.loadSamples, false);
-  audio.addEventListener("ended", this.loadComplete, false);
+  audio.addEventListener("MozAudioAvailable", this.loadSamples, false);
   audio.addEventListener("loadedmetadata", this.loadMetaData, false)
+  audio.addEventListener("ended", this.loadComplete, false);
   audio.muted = true;
+  audio.src = file;
   audio.play();
 };
 

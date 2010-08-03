@@ -17,7 +17,9 @@
         $('#minFreq').slider({ orientation: 'vertical', range: 'min', min: 10, max: 22000, step: 1, value: 40, slide: changeMinFreq });
         $('#maxFreq').slider({ orientation: 'vertical', range: 'min', min: 10, max: 22000, step: 1, value: 16000, slide: changeMaxFreq });
         $('#bandsPerOctave').slider({ orientation: 'vertical', range: 'min', min: 0.1, max: 2, step: 0.1, value: 1, slide: changeBandsPerOctave });
-	$('#input').attr('volume', 0);
+	      $('#input').attr('volume', 0);
+        var input = document.getElementById('input');
+        input.addEventListener('MozAudioAvailable', audioWritten, false);
       });
     </script>
 
@@ -81,7 +83,7 @@
       var output = new Audio();
 
       if ( typeof output.mozSetup === 'function' ) {
-        output.mozSetup(2, sampleRate, 1);
+        output.mozSetup(2, sampleRate);
       }
       
       var changeMinFreq = function() {
@@ -126,7 +128,7 @@
       }
 
       function audioWritten(event) {
-        signal = event.mozFrameBuffer;
+        signal = event.frameBuffer;
 
         // Apply the filter to the signal
         signal = grapheq.processStereo(signal);
@@ -185,7 +187,7 @@
     <h1>Graphical Equalizer</h1>
     <h3>by <a href="http://www.ricardmarxer.com/blog">Ricard Marxer</a></h3>
     <p>You will need a recent build of Mozilla Firefox with the Audio API to hear the filtered version.</p>
-    <audio id='input' style="float: left; height:70px; width: 100%" tabindex="0" src="audio/corban-peddle.ogg" controls="true" onaudiowritten="audioWritten(event);"></audio></br>
+    <audio id='input' style="float: left; height:70px; width: 100%" tabindex="0" src="audio/corban-peddle.ogg" controls="true"></audio></br>
     <p></br></br></p>    
     <div style="width: 100%;">
       <div><canvas id="signal" width="50%" height="200px" style="float: left;"></canvas></div>

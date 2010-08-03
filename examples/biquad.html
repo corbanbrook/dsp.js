@@ -19,11 +19,14 @@
         $('#bw').slider({ orientation: 'vertical', range: 'min', min: 0.01, max: 10.0, value: 1.0, step: 0.001, slide: changeBW });
         $('#s').slider({ orientation: 'vertical', range: 'min', min: 0.0, max: 5.0, value: 1.0, step: 0.001, slide: changeS });
         $('#dbgain').slider({ orientation: 'vertical', range: 'min', min: -30.0, max: 30.0, value: 12.0, step: 1, slide: changeDbGain });
-	$('#filtertype').buttonset();
-	$('#filtertype > input').each(function() { 
+        $('#filtertype').buttonset();
+        $('#filtertype > input').each(function() { 
 					 $(this).button().click( changeFilterType );
-				      });
-	$('#input').attr('volume', 0);
+				});
+	      $('#input').attr('volume', 0);
+
+        var input = document.getElementById('input');
+        input.addEventListener('MozAudioAvailable', audioWritten, false);
       });
     </script>
 
@@ -87,59 +90,58 @@
       var output = new Audio();
 
       if ( typeof output.mozSetup === 'function' ) {
-        output.mozSetup(2, sampleRate, 1);
+        output.mozSetup(2, sampleRate);
       }
 
       var plotCoeffs = function() {
-	var b = [biquad.b0, biquad.b1, biquad.b2];
-	var a = [biquad.a0, biquad.a1, biquad.a2];
-	
-	w = Array(200);
-	for (var i=0;i<w.length; i++) {
-	  w[i] = Math.PI/w.length * i;
-	}
-	
-	response = DSP.mag2db(DSP.freqz(b, a, w));
-	//response = DSP.freqz(b, a);
+        var b = [biquad.b0, biquad.b1, biquad.b2];
+        var a = [biquad.a0, biquad.a1, biquad.a2];
+        
+        w = Array(200);
+        for (var i=0;i<w.length; i++) {
+          w[i] = Math.PI/w.length * i;
+        }
+        
+        response = DSP.mag2db(DSP.freqz(b, a, w));
+        //response = DSP.freqz(b, a);
       }
 
       var changeFilterType = function() {
-	biquad.setFilterType(DSP[$('#filtertype>input:checked').next().text()]);
-	plotCoeffs();
+        biquad.setFilterType(DSP[$('#filtertype>input:checked').next().text()]);
+        plotCoeffs();
       }
 
       var changeF0 = function() {
-	biquad.setF0($('#freq').slider('option', 'value'));
-	plotCoeffs();
+        biquad.setF0($('#freq').slider('option', 'value'));
+        plotCoeffs();
       }
     
       var changeBW = function() {
-	biquad.setBW($('#bw').slider('option', 'value'));
-	plotCoeffs();
+        biquad.setBW($('#bw').slider('option', 'value'));
+        plotCoeffs();
       }
 
       var changeS = function() {
-	biquad.setS($('#s').slider('option', 'value'));
-	plotCoeffs();
+        biquad.setS($('#s').slider('option', 'value'));
+        plotCoeffs();
       }
 
       var changeQ = function() {
         biquad.setQ($('#q').slider('option', 'value'));
-	plotCoeffs();
+	      plotCoeffs();
       }
 
       var changeDbGain = function() {
         biquad.setDbGain($('#dbgain').slider('option', 'value'));
-	plotCoeffs();
+	      plotCoeffs();
       }
 
       function audioWritten(event) {
-        signal = event.mozFrameBuffer;
+        signal = event.frameBuffer;
 
         // Apply the filter to the signal
         signal = biquad.processStereo(signal);
 
-        output.mozWriteAudio([]); // flush
         output.mozWriteAudio(signal);
         writeCount++;
       }
@@ -192,7 +194,7 @@
     <p>The filter implementation will become part of the <a href="https://wiki.mozilla.org/Audio_Data_API_JS_Library">dsp.js</a> library.</p> 
     <p>You will need a recent build of Mozilla Firefox with the Audio API to hear the filtered version.</p>
 
-    <audio id='input' tabindex="0" src="audio/corban-peddle.ogg" controls="true" onaudiowritten="audioWritten(event);" style="width: 100%;"></audio><br>
+    <audio id='input' tabindex="0" src="audio/corban-peddle.ogg" controls="true" style="width: 100%;"></audio><br>
 
     <div style="width: 100%;">
       <div><canvas id="signal" width="50%" height="200px" style="float: left;"></canvas></div>

@@ -249,7 +249,7 @@
       // Setup audio channel
       var a = new Audio();
       if ( typeof a.mozSetup == 'function' ) {
-        a.mozSetup(1, sampleRate, 1);
+        a.mozSetup(1, sampleRate);
       }
       
       var timePerWrite = 0;
