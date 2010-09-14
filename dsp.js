@@ -192,8 +192,8 @@ DFT.prototype.forward = function(buffer) {
     imag = 0.0;
 
     for ( var n = 0; n < buffer.length; n++ ) {
-      real += this.cosTable[k*n] * signal[n];
-      imag += this.sinTable[k*n] * signal[n];
+      real += this.cosTable[k*n] * buffer[n];
+      imag += this.sinTable[k*n] * buffer[n];
     }
 
     this.complexValues[k] = {real: real, imag: imag};
