@@ -1048,8 +1048,6 @@ ADSR.prototype.disable = function() {
  
 function IIRFilter(type, cutoff, resonance, sampleRate) {
   this.sampleRate = sampleRate;
-  this.cutoff     = cutoff;
-  this.resonance  = resonance;
 
   switch(type) {
     case DSP.LOWPASS:
@@ -1058,6 +1056,18 @@ function IIRFilter(type, cutoff, resonance, sampleRate) {
       break;
   }
 }
+
+IIRFilter.prototype.__defineGetter__('cutoff',
+  function() {
+    return this.func.cutoff;
+  }
+);
+
+IIRFilter.prototype.__defineGetter__('resonance',
+  function() {
+    return this.func.resonance;
+  }
+);
 
 IIRFilter.prototype.set = function(cutoff, resonance) {
   this.func.calcCoeff(cutoff, resonance);
