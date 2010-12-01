@@ -83,26 +83,7 @@
       function audioAvailable(event) {
         signal = DSP.getChannel(DSP.MIX, event.frameBuffer);
         lp12.process(signal);
-
-        var audio = [];
-        for (var i = 0; i < signal.length; i++) {
-          audio[i] = signal[i];
-        }
-
-        // Apply the filter to the signal
-  
-        buffer = (buffer.length === 0) ?  audio : buffer.concat(audio);
-
-        var written = output.mozWriteAudio(audio);
-
-        if (written < buffer.length) {
-          buffer.slice(written);
-        } else {
-          buffer.length = 0;
-        }
-
-        //output.mozWriteAudio([]); // flush
-        //output.mozWriteAudio(signal);
+        output.mozWriteAudio(signal);
       }
     </script>
     
