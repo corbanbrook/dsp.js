@@ -479,34 +479,29 @@ var RFFT;
   // this is the real split radix FFT
 
   // don't use a lookup table to do the permute, use this instead
-  function revbin_permute(d, s) {
-    var nh = d.length >>> 1, nm1 = d.length - 1;
- 
-    function revbin_upd(r, h) {
-      while (!((r^=h)&h)) { 
-        h = h >> 1;
-      }
-      return r;
-    }
- 
-    var x, r = 0;
-    d[0] = s[0];
-    x = 1;
-    do {
-      r = r + nh;
-      //swap(a[x], a[r]);
-      d[x] = s[r];
-      d[r] = s[x];
-      x++;
-   
-      r = revbin_upd(r, nh);
-      if (r>=x) { //swap(a[x], a[r]);
-        d[x] = s[r]; d[r] = s[x];
-        d[nm1-x] = s[nm1-r]; d[nm1-r] = s[nm1-x];
-      }
-      x++;
-    } while (x < nh);
-    d[nm1] = s[nm1];
+  function revbin_permute(dest, src) {
+	  var d=dest, s=src,
+		  nh = d.length>>>1, nm1 = d.length - 1,
+		  x = 1, r = 0, ht;
+
+	  d[0] = s[0];
+	  do {
+		  r = r + nh;
+		  //swap(a[x], a[r]);
+		  d[x] = s[r];
+		  d[r] = s[x];
+		  x++;
+
+		  //r = revbin_upd(r, nh);
+		  ht=nh; while ( !((r^=ht)&ht) ) ht = ht >> 1;
+
+		  if(r>=x) { //swap(a[x], a[r]);
+			  d[x] = s[r]; d[r] = s[x];
+			  d[nm1-x] = s[nm1-r]; d[nm1-r] = s[nm1-x];
+		  }
+		  x++;
+	  } while(x < nh);
+	  d[nm1] = s[nm1];
   }
  
   // define some constants
