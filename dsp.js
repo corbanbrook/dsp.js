@@ -129,19 +129,30 @@ DSP.interleave = function(left, right) {
  *
  * @returns an Array containing left and right channels
  */
-DSP.deinterleave = function(buffer) {
-  var left  = new Float32Array(buffer.length/2);
-  var right = new Float32Array(buffer.length/2);
-  var mix   = new Float32Array(buffer.length/2);
- 
-  for (var i = 0, len = buffer.length/2; i < len; i ++ ) {
-    left[i]  = buffer[2*i];
-    right[i] = buffer[2*i+1];
-    mix[i]   = (left[i] + right[i]) / 2;
-  }
- 
-  return [left, right, mix];
-};
+DSP.deinterleave = (function() {
+  var left, right, mix; 
+
+  return function(buffer) { 
+    left  = left  || new Float32Array(buffer.length/2);
+    right = right || new Float32Array(buffer.length/2);
+    mix   = mix   || new Float32Array(buffer.length/2);
+
+    if (buffer.length/2 !== left.length) {
+      left  = new Float32Array(buffer.length/2);
+      right = new Float32Array(buffer.length/2);
+      mix   = new Float32Array(buffer.length/2);
+    }
+
+    for (var i = 0, len = buffer.length/2; i < len; i ++ ) {
+      left[i]  = buffer[2*i];
+      right[i] = buffer[2*i+1];
+      mix[i]   = (left[i] + right[i]) / 2;
+      //mix[i] = (buffer[2*i] + buffer[2*i+1]) /2;
+    }
+   
+    return [left, right, mix];
+  };
+}());
 
 /**
  * Separates a channel from a stereo-interleaved sample buffer
@@ -574,7 +585,8 @@ var RFFT;
             i4 += n8;
            
             //sumdiff(x[i3], x[i4], t1, t2); // {s, d}  <--| {a+b, a-b}
-            t1 = x[i3] + x[i4]; t2 = x[i3] - x[i4];
+            t1 = x[i3] + x[i4]; 
+            t2 = x[i3] - x[i4];
            
             t1 = -t1 * SQRT1_2;
             t2 *= SQRT1_2;
