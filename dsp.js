@@ -470,7 +470,7 @@ FFT.prototype.inverse = function(real, imag) {
 // want a new scope, use strict to avoid bugs and let js implementation
 // optimize more!
 var RFFT;
-(function() { "use strict";
+(function() { 
   // lookup tables don't really gain us any speed, but they do increase
   // cache footprint, so don't use them in here
  
@@ -491,18 +491,10 @@ var RFFT;
 
   // don't use a lookup table to do the permute, use this instead
   function revbin_permute(d, s) {
-    var nh = d.length >>> 1, nm1 = d.length - 1;
- 
-    function revbin_upd(r, h) {
-      while (!((r^=h)&h)) { 
-        h = h >> 1;
-      }
-      return r;
-    }
- 
-    var x, r = 0;
+    var nh = d.length >>> 1, nm1 = d.length - 1, x = 1, r = 0, h;
+
     d[0] = s[0];
-    x = 1;
+
     do {
       r = r + nh;
       //swap(a[x], a[r]);
@@ -510,10 +502,17 @@ var RFFT;
       d[r] = s[x];
       x++;
    
-      r = revbin_upd(r, nh);
-      if (r>=x) { //swap(a[x], a[r]);
-        d[x] = s[r]; d[r] = s[x];
-        d[nm1-x] = s[nm1-r]; d[nm1-r] = s[nm1-x];
+      h = nh;
+
+      while (!((r ^= h) & h)) { 
+        h = h >> 1;
+      } 
+      
+      if (r >= x) { //swap(a[x], a[r]);
+        d[x] = s[r]; 
+        d[r] = s[x];
+        d[nm1-x] = s[nm1-r]; 
+        d[nm1-r] = s[nm1-x];
       }
       x++;
     } while (x < nh);
@@ -538,26 +537,23 @@ var RFFT;
   // trans[n-1]   = im[1] 
 
   RFFT.prototype.forward = function(buffer) {
-    var n = this.bufferSize;
-    var x = this.trans,
-      ix, id, i0,
-      i1, i2, i3, i4, i5, i6, i7, i8,
-      n2, n4, n8, nn,
-      t1, t2, t3, t4, st1,
-      e, a, cc1, ss1, cc3, ss3,
-      j;
+    var n = this.bufferSize, x = this.trans, n2, n4, n8, nn, st1, t1, t2, t3, t4, ix, id, i0, i1, i2, i3, i4, i5, i6, i7, i8, e, a, j, cc1, ss1, cc3, ss3;
+
     revbin_permute(x, buffer);
 
     for (ix = 0, id = 4; ix < n; id *= 4) {
       for (i0 = ix; i0 < n; i0 += id) {
         //sumdiff(x[i0], x[i0+1]); // {a, b}  <--| {a+b, a-b}
-        st1 = x[i0] - x[i0+1]; x[i0] += x[i0+1]; x[i0+1] = st1;
-      }
+        st1 = x[i0] - x[i0+1];
+        x[i0] += x[i0+1];
+        x[i0+1] = st1;
+      } 
       ix = 2*(id-1);
     }
  
     n2 = 2;
     nn = n >>> 1;
+
     while((nn = nn >>> 1)) {
       ix = 0;
       n2 = n2 << 1;
@@ -565,7 +561,6 @@ var RFFT;
       n4 = n2 >>> 2;
       n8 = n2 >>> 3;
       do {
-     
         if(n4 !== 1) {
           for(i0 = ix; i0 < n; i0 += id) {
             i1 = i0;
@@ -574,10 +569,11 @@ var RFFT;
             i4 = i3 + n4;
        
             //diffsum3_r(x[i3], x[i4], t1); // {a, b, s} <--| {a, b-a, a+b}
-            t1 = x[i3] + x[i4]; x[i4] -= x[i3];
+            t1 = x[i3] + x[i4];
+            x[i4] -= x[i3];
             //sumdiff3(x[i1], t1, x[i3]);   // {a, b, d} <--| {a+b, b, a-b}
-            x[i3] = x[i1] - t1; x[i1] += t1;
-       
+            x[i3] = x[i1] - t1; 
+            x[i1] += t1;
        
             i1 += n8;
             i2 += n8;
@@ -585,16 +581,20 @@ var RFFT;
             i4 += n8;
            
             //sumdiff(x[i3], x[i4], t1, t2); // {s, d}  <--| {a+b, a-b}
-            t1 = x[i3] + x[i4]; 
+            t1 = x[i3] + x[i4];
             t2 = x[i3] - x[i4];
            
             t1 = -t1 * SQRT1_2;
             t2 *= SQRT1_2;
        
             // sumdiff(t1, x[i2], x[i4], x[i3]); // {s, d}  <--| {a+b, a-b}
-            st1 = x[i2]; x[i4] = t1 + st1; x[i3] = t1 - st1;
+            st1 = x[i2];
+            x[i4] = t1 + st1; 
+            x[i3] = t1 - st1;
+            
             //sumdiff3(x[i1], t2, x[i2]); // {a, b, d} <--| {a+b, b, a-b}
-            x[i2] = x[i1] - t2; x[i1] += t2;
+            x[i2] = x[i1] - t2;
+            x[i1] += t2;
           }
         } else {
           for(i0 = ix; i0 < n; i0 += id) {
@@ -604,26 +604,33 @@ var RFFT;
             i4 = i3 + n4;
        
             //diffsum3_r(x[i3], x[i4], t1); // {a, b, s} <--| {a, b-a, a+b}
-            t1 = x[i3] + x[i4]; x[i4] -= x[i3];
+            t1 = x[i3] + x[i4]; 
+            x[i4] -= x[i3];
+            
             //sumdiff3(x[i1], t1, x[i3]);   // {a, b, d} <--| {a+b, b, a-b}
-            x[i3] = x[i1] - t1; x[i1] += t1;
+            x[i3] = x[i1] - t1; 
+            x[i1] += t1;
           }
         }
      
-        ix = (id<<1) - n2;
+        ix = (id << 1) - n2;
         id = id << 2;
-      } while(ix < n);
+      } while (ix < n);
    
-      e = _2pi/n2;
-      for(j=1; j<n8; j++) {
-        a = j*e;
-        ss1 = sin(a);   cc1 = cos(a);
+      e = _2pi / n2;
+
+      for (j = 1; j < n8; j++) {
+        a = j * e;
+        ss1 = sin(a);
+        cc1 = cos(a);
+        
         //ss3 = sin(3*a); cc3 = cos(3*a);
-        cc3 = 4*cc1*(cc1*cc1-0.75); ss3 = 4*ss1*(0.75-ss1*ss1);
+        cc3 = 4*cc1*(cc1*cc1-0.75);
+        ss3 = 4*ss1*(0.75-ss1*ss1);
      
         ix = 0; id = n2 << 1;
         do {
-          for(i0 = ix; i0 < n; i0+= id) {
+          for (i0 = ix; i0 < n; i0 += id) {
             i1 = i0 + j;
             i2 = i1 + n4;
             i3 = i2 + n4;
@@ -636,39 +643,54 @@ var RFFT;
          
             //cmult(c, s, x, y, &u, &v)
             //cmult(cc1, ss1, x[i7], x[i3], t2, t1); // {u,v} <--| {x*c-y*s, x*s+y*c}
-            t2 = x[i7]*cc1 - x[i3]*ss1; t1 = x[i7]*ss1 + x[i3]*cc1;
+            t2 = x[i7]*cc1 - x[i3]*ss1; 
+            t1 = x[i7]*ss1 + x[i3]*cc1;
+            
             //cmult(cc3, ss3, x[i8], x[i4], t4, t3);
-            t4 = x[i8]*cc3 - x[i4]*ss3; t3 = x[i8]*ss3 + x[i4]*cc3;
+            t4 = x[i8]*cc3 - x[i4]*ss3; 
+            t3 = x[i8]*ss3 + x[i4]*cc3;
          
             //sumdiff(t2, t4);   // {a, b} <--| {a+b, a-b}
-            st1 = t2 - t4; t2 += t4; t4 = st1;
+            st1 = t2 - t4;
+            t2 += t4;
+            t4 = st1;
+            
             //sumdiff(t2, x[i6], x[i8], x[i3]); // {s, d}  <--| {a+b, a-b}
             //st1 = x[i6]; x[i8] = t2 + st1; x[i3] = t2 - st1;
-            x[i8] = t2 + x[i6]; x[i3] = t2 - x[i6];
+            x[i8] = t2 + x[i6]; 
+            x[i3] = t2 - x[i6];
            
             //sumdiff_r(t1, t3); // {a, b} <--| {a+b, b-a}
-            st1 = t3 - t1; t1 += t3; t3 = st1;
+            st1 = t3 - t1;
+            t1 += t3;
+            t3 = st1;
+            
             //sumdiff(t3, x[i2], x[i4], x[i7]); // {s, d}  <--| {a+b, a-b}
             //st1 = x[i2]; x[i4] = t3 + st1; x[i7] = t3 - st1;
-            x[i4] = t3 + x[i2]; x[i7] = t3 - x[i2];
+            x[i4] = t3 + x[i2]; 
+            x[i7] = t3 - x[i2];
            
             //sumdiff3(x[i1], t1, x[i6]);   // {a, b, d} <--| {a+b, b, a-b}
-            x[i6] = x[i1] - t1; x[i1] += t1;
+            x[i6] = x[i1] - t1; 
+            x[i1] += t1;
+            
             //diffsum3_r(t4, x[i5], x[i2]); // {a, b, s} <--| {a, b-a, a+b}
-            x[i2] = t4 + x[i5]; x[i5] -= t4;
+            x[i2] = t4 + x[i5]; 
+            x[i5] -= t4;
           }
        
           ix = (id<<1) - n2;
           id = id << 2;
      
-        } while(ix < n);
+        } while (ix < n);
       }
     }
  
     var spectrum = this.spectrum;
     var i = (n>>>1);
     var bSi = 2.0 / n;
-    while(--i) {
+    
+    while (--i) {
       spectrum[i] = bSi * sqrt(x[i] * x[i] + x[n-i-1] * x[n-i-1]);
     }
     spectrum[0] = bSi * x[0];
