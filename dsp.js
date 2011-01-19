@@ -277,6 +277,7 @@ function FFT(bufferSize, sampleRate) {
   this.spectrum         = new Float32Array(bufferSize/2);
   this.real             = new Float32Array(bufferSize);
   this.imag             = new Float32Array(bufferSize);
+  this.bandwidth        = 2 / bufferSize * sampleRate / 2;
    
   this.reverseTable     = new Uint32Array(bufferSize);
 
@@ -454,6 +455,17 @@ FFT.prototype.inverse = function(real, imag) {
   return buffer;
 };
 
+/**
+ * Calculates the *middle* frequency of an FFT band.
+ *
+ * @param {Number} index The index of the FFT band.
+ *
+ * @returns The middle frequency in Hz.
+ */
+FFT.prototype.getBandFrequency = function(index) {
+  return index * this.bandwidth + this.bandwidth / 2;
+};
+
 
 /**
  * RFFT is a class for calculating the Discrete Fourier Transform of a signal
@@ -482,8 +494,9 @@ var RFFT;
   RFFT = function(bufferSize, sampleRate) {
     this.bufferSize = bufferSize; 
     this.sampleRate = sampleRate;
-    this.trans = new Float32Array(bufferSize);
-    this.spectrum = new Float32Array(bufferSize/2);
+    this.bandwidth  = 2 / bufferSize * sampleRate / 2;
+    this.trans      = new Float32Array(bufferSize);
+    this.spectrum   = new Float32Array(bufferSize/2);
   };
  
   // the rest of this was translated from C, see http://www.jjj.de/fxt/
@@ -694,6 +707,17 @@ var RFFT;
       spectrum[i] = bSi * sqrt(x[i] * x[i] + x[n-i-1] * x[n-i-1]);
     }
     spectrum[0] = bSi * x[0];
+  };
+
+  /**
+   * Calculates the *middle* frequency of an FFT band.
+   *
+   * @param {Number} index The index of the FFT band.
+   *
+   * @returns The middle frequency in Hz.
+   */
+  RFFT.prototype.getBandFrequency = function(index) {
+    return index * this.bandwidth + this.bandwidth / 2;
   };
 }());
 
