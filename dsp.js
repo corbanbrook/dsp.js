@@ -92,7 +92,7 @@ setupTypedArray("Uint8Array",   "WebGLUnsignedByteArray");
  * @returns The inverted sample buffer
  */
 DSP.invert = function(buffer) {
-  for ( var i = 0, len = buffer.length; i < len; i++ ) {
+  for (var i = 0, len = buffer.length; i < len; i++) {
     buffer[i] *= -1;
   }
 
@@ -108,13 +108,13 @@ DSP.invert = function(buffer) {
  * @returns The stereo interleaved buffer
  */
 DSP.interleave = function(left, right) {
-  if ( left.length !== right.length ) {
+  if (left.length !== right.length) {
     throw "Can not interleave. Channel lengths differ.";
   }
  
   var stereoInterleaved = new Float32Array(left.length * 2);
  
-  for (var i = 0, len = left.length; i < len; i++ ) {
+  for (var i = 0, len = left.length; i < len; i++) {
     stereoInterleaved[2*i]   = left[i];
     stereoInterleaved[2*i+1] = right[i];
   }
@@ -143,7 +143,7 @@ DSP.deinterleave = (function() {
       mix   = new Float32Array(buffer.length/2);
     }
 
-    for (var i = 0, len = buffer.length/2; i < len; i ++ ) {
+    for (var i = 0, len = buffer.length/2; i < len; i++) {
       left[i]  = buffer[2*i];
       right[i] = buffer[2*i+1];
       mix[i]   = (left[i] + right[i]) / 2;
@@ -189,21 +189,78 @@ DSP.mixSampleBuffers = function(sampleBuffer1, sampleBuffer2, negate, volumeCorr
 }; 
 
 // Biquad filter types
-DSP.LPF = 0;            // H(s) = 1 / (s^2 + s/Q + 1)
-DSP.HPF = 1;       // H(s) = s^2 / (s^2 + s/Q + 1)
-DSP.BPF_CONSTANT_SKIRT = 2;       // H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
-DSP.BPF_CONSTANT_PEAK = 3;       // H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
-DSP.NOTCH = 4;     // H(s) = (s^2 + 1) / (s^2 + s/Q + 1)
-DSP.APF = 5;       // H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
-DSP.PEAKING_EQ = 6;  // H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
-DSP.LOW_SHELF = 7;   // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
-DSP.HIGH_SHELF = 8;   // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
+DSP.LPF = 0;                // H(s) = 1 / (s^2 + s/Q + 1)
+DSP.HPF = 1;                // H(s) = s^2 / (s^2 + s/Q + 1)
+DSP.BPF_CONSTANT_SKIRT = 2; // H(s) = s / (s^2 + s/Q + 1)  (constant skirt gain, peak gain = Q)
+DSP.BPF_CONSTANT_PEAK = 3;  // H(s) = (s/Q) / (s^2 + s/Q + 1)      (constant 0 dB peak gain)
+DSP.NOTCH = 4;              // H(s) = (s^2 + 1) / (s^2 + s/Q + 1)
+DSP.APF = 5;                // H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
+DSP.PEAKING_EQ = 6;         // H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
+DSP.LOW_SHELF = 7;          // H(s) = A * (s^2 + (sqrt(A)/Q)*s + A)/(A*s^2 + (sqrt(A)/Q)*s + 1)
+DSP.HIGH_SHELF = 8;         // H(s) = A * (A*s^2 + (sqrt(A)/Q)*s + 1)/(s^2 + (sqrt(A)/Q)*s + A)
 
 // Biquad filter parameter types
 DSP.Q = 1;
 DSP.BW = 2; // SHARED with BACKWARDS LOOP MODE
 DSP.S = 3;
 
+// Find RMS of signal
+DSP.RMS = function(buffer) {
+  var total = 0;
+  
+  for (var i = 0, n = buffer.length; i < n; i++) {
+    total += buffer[i] * buffer[i];
+  }
+  
+  return Math.sqrt(total / n);
+};
+
+// Find Peak of signal
+DSP.Peak = function(buffer) {
+  var peak = 0;
+  
+  for (var i = 0, n = buffer.length; i < n; i++) {
+    peak = (Math.abs(buffer[i]) > peak) ? Math.abs(buffer[i]) : peak; 
+  }
+  
+  return peak;
+};
+
+// Fourier Transform Module used by DFT, FFT, RFT
+function FourierTransform(bufferSize, sampleRate) {
+  this.bufferSize = bufferSize;
+  this.sampleRate = sampleRate;
+  this.bandwidth  = 2 / bufferSize * sampleRate / 2;
+
+  this.spectrum   = new Float32Array(bufferSize/2);
+  this.real       = new Float32Array(bufferSize);
+  this.imag       = new Float32Array(bufferSize);
+
+  this.peakBand   = 0;
+  this.peak       = 0;
+
+  /**
+   * Calculates the *middle* frequency of an FFT band.
+   *
+   * @param {Number} index The index of the FFT band.
+   *
+   * @returns The middle frequency in Hz.
+   */
+  this.getBandFrequency = function(index) {
+    return this.bandwidth * index + this.bandwidth / 2;
+  };
+
+  this.calculateMagnitude = function(real, imag) {
+    return 2 / this.bufferSize * Math.sqrt(real * real + imag * imag);
+  };
+
+  this.calculatePeak = function(band, magnitude) {
+    if (magnitude > this.peak) {
+      this.peakBand = band;
+      this.peak = magnitude;
+    }
+  };
+}
 
 /**
  * DFT is a class for calculating the Discrete Fourier Transform of a signal.
@@ -214,21 +271,18 @@ DSP.S = 3;
  * @constructor
  */
 function DFT(bufferSize, sampleRate) {
-  this.bufferSize = bufferSize;
-  this.sampleRate = sampleRate;
+  FourierTransform.call(this, bufferSize, sampleRate);
 
   var N = bufferSize/2 * bufferSize;
-     
+  var TWO_PI = 2 * Math.PI;
+
   this.sinTable = new Float32Array(N);
   this.cosTable = new Float32Array(N);
- 
+
   for (var i = 0; i < N; i++) {
-    this.sinTable[i] = Math.sin(i * DSP.TWO_PI / bufferSize);
-    this.cosTable[i] = Math.cos(i * DSP.TWO_PI / bufferSize);
+    this.sinTable[i] = Math.sin(i * TWO_PI / bufferSize);
+    this.cosTable[i] = Math.cos(i * TWO_PI / bufferSize);
   }
- 
-  this.spectrum = new Float32Array(bufferSize/2);
-  this.complexValues = new Float32Array(bufferSize/2);
 }
 
 /**
@@ -240,25 +294,33 @@ function DFT(bufferSize, sampleRate) {
  * @returns The frequency spectrum array
  */
 DFT.prototype.forward = function(buffer) {
-  var real, imag;
+  var real = this.real, 
+      imag = this.imag,
+      rval,
+      ival;
 
   for (var k = 0; k < this.bufferSize/2; k++) {
-    real = 0.0;
-    imag = 0.0;
+    rval = 0.0;
+    ival = 0.0;
 
     for (var n = 0; n < buffer.length; n++) {
-      real += this.cosTable[k*n] * buffer[n];
-      imag += this.sinTable[k*n] * buffer[n];
+      rval += this.cosTable[k*n] * buffer[n];
+      ival += this.sinTable[k*n] * buffer[n];
     }
 
-    this.complexValues[k] = {real: real, imag: imag};
-  }
- 
-  for (var i = 0; i < this.bufferSize/2; i++) {
-    this.spectrum[i] = 2 * Math.sqrt(Math.pow(this.complexValues[i].real, 2) + Math.pow(this.complexValues[i].imag, 2)) / this.bufferSize;
+    real[k] = rval;
+    imag[k] = ival;
   }
 
-  return this.spectrum;
+  var spectrum = this.spectrum;
+  var bSi = 2 / this.bufferSize;
+ 
+  for (var i = 0; i < this.bufferSize/2; i++) {
+    spectrum[i] = bSi * Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
+    this.calculatePeak(i, spectrum[i]);
+  }
+
+  return spectrum;
 };
 
 
@@ -272,12 +334,7 @@ DFT.prototype.forward = function(buffer) {
  * @constructor
  */
 function FFT(bufferSize, sampleRate) {
-  this.bufferSize = bufferSize;
-  this.sampleRate = sampleRate;
-  this.spectrum         = new Float32Array(bufferSize/2);
-  this.real             = new Float32Array(bufferSize);
-  this.imag             = new Float32Array(bufferSize);
-  this.bandwidth        = 2 / bufferSize * sampleRate / 2;
+  FourierTransform.call(this, bufferSize, sampleRate);
    
   this.reverseTable     = new Uint32Array(bufferSize);
 
@@ -373,8 +430,12 @@ FFT.prototype.forward = function(buffer) {
   }
 
   i = bufferSize/2;
+
+  var bSi = 2 / bufferSize;
+  
   while(i--) {
-    spectrum[i] = 2 * Math.sqrt(real[i] * real[i] + imag[i] * imag[i]) / bufferSize;
+    spectrum[i] =  bSi * Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
+    this.calculatePeak(i, spectrum[i]);
   }
 
   return spectrum;
@@ -456,18 +517,6 @@ FFT.prototype.inverse = function(real, imag) {
 };
 
 /**
- * Calculates the *middle* frequency of an FFT band.
- *
- * @param {Number} index The index of the FFT band.
- *
- * @returns The middle frequency in Hz.
- */
-FFT.prototype.getBandFrequency = function(index) {
-  return index * this.bandwidth + this.bandwidth / 2;
-};
-
-
-/**
  * RFFT is a class for calculating the Discrete Fourier Transform of a signal
  * with the Fast Fourier Transform algorithm.
  *
@@ -479,31 +528,24 @@ FFT.prototype.getBandFrequency = function(index) {
  * @constructor
  */
 
-// want a new scope, use strict to avoid bugs and let js implementation
-// optimize more!
-var RFFT;
-(function() { 
-  // lookup tables don't really gain us any speed, but they do increase
-  // cache footprint, so don't use them in here
- 
-  // also we don't use sepearate arrays for real/imaginary parts
- 
-  // this one a little more than twice as fast as the one in FFT
-  // however I only did the forward transform
+// lookup tables don't really gain us any speed, but they do increase
+// cache footprint, so don't use them in here
 
-  RFFT = function(bufferSize, sampleRate) {
-    this.bufferSize = bufferSize; 
-    this.sampleRate = sampleRate;
-    this.bandwidth  = 2 / bufferSize * sampleRate / 2;
-    this.trans      = new Float32Array(bufferSize);
-    this.spectrum   = new Float32Array(bufferSize/2);
-  };
- 
-  // the rest of this was translated from C, see http://www.jjj.de/fxt/
-  // this is the real split radix FFT
+// also we don't use sepearate arrays for real/imaginary parts
+
+// this one a little more than twice as fast as the one in FFT
+// however I only did the forward transform
+
+// the rest of this was translated from C, see http://www.jjj.de/fxt/
+// this is the real split radix FFT
+
+function RFFT(bufferSize, sampleRate) {
+  FourierTransform.call(this, bufferSize, sampleRate);
+
+  this.trans = new Float32Array(bufferSize);
 
   // don't use a lookup table to do the permute, use this instead
-  function revbin_permute(d, s) {
+  this.reverseBinPermute = function (d, s) {
     var nh = d.length >>> 1, nm1 = d.length - 1, x = 1, r = 0, h;
 
     d[0] = s[0];
@@ -530,196 +572,190 @@ var RFFT;
       x++;
     } while (x < nh);
     d[nm1] = s[nm1];
+  };
+}
+
+
+// Ordering of output:
+//
+// trans[0]     = re[0] (==zero frequency, purely real)
+// trans[1]     = re[1]
+//             ...
+// trans[n/2-1] = re[n/2-1]
+// trans[n/2]   = re[n/2]    (==nyquist frequency, purely real)
+//
+// trans[n/2+1] = im[n/2-1]
+// trans[n/2+2] = im[n/2-2]
+//             ...
+// trans[n-1]   = im[1] 
+
+RFFT.prototype.forward = function(buffer) {
+  var n = this.bufferSize, x = this.trans, n2, n4, n8, nn, st1, t1, t2, t3, t4, ix, id, i0, i1, i2, i3, i4, i5, i6, i7, i8, e, a, j, cc1, ss1, cc3, ss3;
+  var TWO_PI = 2*Math.PI, SQRT1_2 = Math.SQRT1_2;
+
+  this.reverseBinPermute(x, buffer);
+
+  for (ix = 0, id = 4; ix < n; id *= 4) {
+    for (i0 = ix; i0 < n; i0 += id) {
+      //sumdiff(x[i0], x[i0+1]); // {a, b}  <--| {a+b, a-b}
+      st1 = x[i0] - x[i0+1];
+      x[i0] += x[i0+1];
+      x[i0+1] = st1;
+    } 
+    ix = 2*(id-1);
   }
+
+  n2 = 2;
+  nn = n >>> 1;
+
+  while((nn = nn >>> 1)) {
+    ix = 0;
+    n2 = n2 << 1;
+    id = n2 << 1;
+    n4 = n2 >>> 2;
+    n8 = n2 >>> 3;
+    do {
+      if(n4 !== 1) {
+        for(i0 = ix; i0 < n; i0 += id) {
+          i1 = i0;
+          i2 = i1 + n4;
+          i3 = i2 + n4;
+          i4 = i3 + n4;
+     
+          //diffsum3_r(x[i3], x[i4], t1); // {a, b, s} <--| {a, b-a, a+b}
+          t1 = x[i3] + x[i4];
+          x[i4] -= x[i3];
+          //sumdiff3(x[i1], t1, x[i3]);   // {a, b, d} <--| {a+b, b, a-b}
+          x[i3] = x[i1] - t1; 
+          x[i1] += t1;
+     
+          i1 += n8;
+          i2 += n8;
+          i3 += n8;
+          i4 += n8;
+         
+          //sumdiff(x[i3], x[i4], t1, t2); // {s, d}  <--| {a+b, a-b}
+          t1 = x[i3] + x[i4];
+          t2 = x[i3] - x[i4];
+         
+          t1 = -t1 * SQRT1_2;
+          t2 *= SQRT1_2;
+     
+          // sumdiff(t1, x[i2], x[i4], x[i3]); // {s, d}  <--| {a+b, a-b}
+          st1 = x[i2];
+          x[i4] = t1 + st1; 
+          x[i3] = t1 - st1;
+          
+          //sumdiff3(x[i1], t2, x[i2]); // {a, b, d} <--| {a+b, b, a-b}
+          x[i2] = x[i1] - t2;
+          x[i1] += t2;
+        }
+      } else {
+        for(i0 = ix; i0 < n; i0 += id) {
+          i1 = i0;
+          i2 = i1 + n4;
+          i3 = i2 + n4;
+          i4 = i3 + n4;
+     
+          //diffsum3_r(x[i3], x[i4], t1); // {a, b, s} <--| {a, b-a, a+b}
+          t1 = x[i3] + x[i4]; 
+          x[i4] -= x[i3];
+          
+          //sumdiff3(x[i1], t1, x[i3]);   // {a, b, d} <--| {a+b, b, a-b}
+          x[i3] = x[i1] - t1; 
+          x[i1] += t1;
+        }
+      }
+   
+      ix = (id << 1) - n2;
+      id = id << 2;
+    } while (ix < n);
  
-  // define some constants
-  var sqrt = Math.sqrt, cos = Math.cos, sin = Math.sin;
-  var _2pi = 2*Math.PI, SQRT1_2 = Math.SQRT1_2;
- 
-  // Ordering of output:
-  //
-  // trans[0]     = re[0] (==zero frequency, purely real)
-  // trans[1]     = re[1]
-  //             ...
-  // trans[n/2-1] = re[n/2-1]
-  // trans[n/2]   = re[n/2]    (==nyquist frequency, purely real)
-  //
-  // trans[n/2+1] = im[n/2-1]
-  // trans[n/2+2] = im[n/2-2]
-  //             ...
-  // trans[n-1]   = im[1] 
+    e = TWO_PI / n2;
 
-  RFFT.prototype.forward = function(buffer) {
-    var n = this.bufferSize, x = this.trans, n2, n4, n8, nn, st1, t1, t2, t3, t4, ix, id, i0, i1, i2, i3, i4, i5, i6, i7, i8, e, a, j, cc1, ss1, cc3, ss3;
-
-    revbin_permute(x, buffer);
-
-    for (ix = 0, id = 4; ix < n; id *= 4) {
-      for (i0 = ix; i0 < n; i0 += id) {
-        //sumdiff(x[i0], x[i0+1]); // {a, b}  <--| {a+b, a-b}
-        st1 = x[i0] - x[i0+1];
-        x[i0] += x[i0+1];
-        x[i0+1] = st1;
-      } 
-      ix = 2*(id-1);
-    }
- 
-    n2 = 2;
-    nn = n >>> 1;
-
-    while((nn = nn >>> 1)) {
-      ix = 0;
-      n2 = n2 << 1;
-      id = n2 << 1;
-      n4 = n2 >>> 2;
-      n8 = n2 >>> 3;
+    for (j = 1; j < n8; j++) {
+      a = j * e;
+      ss1 = Math.sin(a);
+      cc1 = Math.cos(a);
+      
+      //ss3 = sin(3*a); cc3 = cos(3*a);
+      cc3 = 4*cc1*(cc1*cc1-0.75);
+      ss3 = 4*ss1*(0.75-ss1*ss1);
+   
+      ix = 0; id = n2 << 1;
       do {
-        if(n4 !== 1) {
-          for(i0 = ix; i0 < n; i0 += id) {
-            i1 = i0;
-            i2 = i1 + n4;
-            i3 = i2 + n4;
-            i4 = i3 + n4;
+        for (i0 = ix; i0 < n; i0 += id) {
+          i1 = i0 + j;
+          i2 = i1 + n4;
+          i3 = i2 + n4;
+          i4 = i3 + n4;
        
-            //diffsum3_r(x[i3], x[i4], t1); // {a, b, s} <--| {a, b-a, a+b}
-            t1 = x[i3] + x[i4];
-            x[i4] -= x[i3];
-            //sumdiff3(x[i1], t1, x[i3]);   // {a, b, d} <--| {a+b, b, a-b}
-            x[i3] = x[i1] - t1; 
-            x[i1] += t1;
+          i5 = i0 + n4 - j;
+          i6 = i5 + n4;
+          i7 = i6 + n4;
+          i8 = i7 + n4;
        
-            i1 += n8;
-            i2 += n8;
-            i3 += n8;
-            i4 += n8;
-           
-            //sumdiff(x[i3], x[i4], t1, t2); // {s, d}  <--| {a+b, a-b}
-            t1 = x[i3] + x[i4];
-            t2 = x[i3] - x[i4];
-           
-            t1 = -t1 * SQRT1_2;
-            t2 *= SQRT1_2;
+          //cmult(c, s, x, y, &u, &v)
+          //cmult(cc1, ss1, x[i7], x[i3], t2, t1); // {u,v} <--| {x*c-y*s, x*s+y*c}
+          t2 = x[i7]*cc1 - x[i3]*ss1; 
+          t1 = x[i7]*ss1 + x[i3]*cc1;
+          
+          //cmult(cc3, ss3, x[i8], x[i4], t4, t3);
+          t4 = x[i8]*cc3 - x[i4]*ss3; 
+          t3 = x[i8]*ss3 + x[i4]*cc3;
        
-            // sumdiff(t1, x[i2], x[i4], x[i3]); // {s, d}  <--| {a+b, a-b}
-            st1 = x[i2];
-            x[i4] = t1 + st1; 
-            x[i3] = t1 - st1;
-            
-            //sumdiff3(x[i1], t2, x[i2]); // {a, b, d} <--| {a+b, b, a-b}
-            x[i2] = x[i1] - t2;
-            x[i1] += t2;
-          }
-        } else {
-          for(i0 = ix; i0 < n; i0 += id) {
-            i1 = i0;
-            i2 = i1 + n4;
-            i3 = i2 + n4;
-            i4 = i3 + n4;
-       
-            //diffsum3_r(x[i3], x[i4], t1); // {a, b, s} <--| {a, b-a, a+b}
-            t1 = x[i3] + x[i4]; 
-            x[i4] -= x[i3];
-            
-            //sumdiff3(x[i1], t1, x[i3]);   // {a, b, d} <--| {a+b, b, a-b}
-            x[i3] = x[i1] - t1; 
-            x[i1] += t1;
-          }
+          //sumdiff(t2, t4);   // {a, b} <--| {a+b, a-b}
+          st1 = t2 - t4;
+          t2 += t4;
+          t4 = st1;
+          
+          //sumdiff(t2, x[i6], x[i8], x[i3]); // {s, d}  <--| {a+b, a-b}
+          //st1 = x[i6]; x[i8] = t2 + st1; x[i3] = t2 - st1;
+          x[i8] = t2 + x[i6]; 
+          x[i3] = t2 - x[i6];
+         
+          //sumdiff_r(t1, t3); // {a, b} <--| {a+b, b-a}
+          st1 = t3 - t1;
+          t1 += t3;
+          t3 = st1;
+          
+          //sumdiff(t3, x[i2], x[i4], x[i7]); // {s, d}  <--| {a+b, a-b}
+          //st1 = x[i2]; x[i4] = t3 + st1; x[i7] = t3 - st1;
+          x[i4] = t3 + x[i2]; 
+          x[i7] = t3 - x[i2];
+         
+          //sumdiff3(x[i1], t1, x[i6]);   // {a, b, d} <--| {a+b, b, a-b}
+          x[i6] = x[i1] - t1; 
+          x[i1] += t1;
+          
+          //diffsum3_r(t4, x[i5], x[i2]); // {a, b, s} <--| {a, b-a, a+b}
+          x[i2] = t4 + x[i5]; 
+          x[i5] -= t4;
         }
      
-        ix = (id << 1) - n2;
+        ix = (id<<1) - n2;
         id = id << 2;
-      } while (ix < n);
    
-      e = _2pi / n2;
-
-      for (j = 1; j < n8; j++) {
-        a = j * e;
-        ss1 = sin(a);
-        cc1 = cos(a);
-        
-        //ss3 = sin(3*a); cc3 = cos(3*a);
-        cc3 = 4*cc1*(cc1*cc1-0.75);
-        ss3 = 4*ss1*(0.75-ss1*ss1);
-     
-        ix = 0; id = n2 << 1;
-        do {
-          for (i0 = ix; i0 < n; i0 += id) {
-            i1 = i0 + j;
-            i2 = i1 + n4;
-            i3 = i2 + n4;
-            i4 = i3 + n4;
-         
-            i5 = i0 + n4 - j;
-            i6 = i5 + n4;
-            i7 = i6 + n4;
-            i8 = i7 + n4;
-         
-            //cmult(c, s, x, y, &u, &v)
-            //cmult(cc1, ss1, x[i7], x[i3], t2, t1); // {u,v} <--| {x*c-y*s, x*s+y*c}
-            t2 = x[i7]*cc1 - x[i3]*ss1; 
-            t1 = x[i7]*ss1 + x[i3]*cc1;
-            
-            //cmult(cc3, ss3, x[i8], x[i4], t4, t3);
-            t4 = x[i8]*cc3 - x[i4]*ss3; 
-            t3 = x[i8]*ss3 + x[i4]*cc3;
-         
-            //sumdiff(t2, t4);   // {a, b} <--| {a+b, a-b}
-            st1 = t2 - t4;
-            t2 += t4;
-            t4 = st1;
-            
-            //sumdiff(t2, x[i6], x[i8], x[i3]); // {s, d}  <--| {a+b, a-b}
-            //st1 = x[i6]; x[i8] = t2 + st1; x[i3] = t2 - st1;
-            x[i8] = t2 + x[i6]; 
-            x[i3] = t2 - x[i6];
-           
-            //sumdiff_r(t1, t3); // {a, b} <--| {a+b, b-a}
-            st1 = t3 - t1;
-            t1 += t3;
-            t3 = st1;
-            
-            //sumdiff(t3, x[i2], x[i4], x[i7]); // {s, d}  <--| {a+b, a-b}
-            //st1 = x[i2]; x[i4] = t3 + st1; x[i7] = t3 - st1;
-            x[i4] = t3 + x[i2]; 
-            x[i7] = t3 - x[i2];
-           
-            //sumdiff3(x[i1], t1, x[i6]);   // {a, b, d} <--| {a+b, b, a-b}
-            x[i6] = x[i1] - t1; 
-            x[i1] += t1;
-            
-            //diffsum3_r(t4, x[i5], x[i2]); // {a, b, s} <--| {a, b-a, a+b}
-            x[i2] = t4 + x[i5]; 
-            x[i5] -= t4;
-          }
-       
-          ix = (id<<1) - n2;
-          id = id << 2;
-     
-        } while (ix < n);
-      }
+      } while (ix < n);
     }
- 
-    var spectrum = this.spectrum;
-    var i = (n>>>1);
-    var bSi = 2.0 / n;
-    
-    while (--i) {
-      spectrum[i] = bSi * sqrt(x[i] * x[i] + x[n-i-1] * x[n-i-1]);
-    }
-    spectrum[0] = bSi * x[0];
-  };
+  }
 
-  /**
-   * Calculates the *middle* frequency of an FFT band.
-   *
-   * @param {Number} index The index of the FFT band.
-   *
-   * @returns The middle frequency in Hz.
-   */
-  RFFT.prototype.getBandFrequency = function(index) {
-    return index * this.bandwidth + this.bandwidth / 2;
-  };
-}());
+  var spectrum = this.spectrum;
+  var i = (n>>>1);
+  var bSi = 2.0 / n;
+
+  var real, imag;
+
+  while (--i) {
+    real = x[i];
+    imag = x[n-i-1];
+    spectrum[i] = bSi * Math.sqrt(real * real + imag * imag);
+    this.calculatePeak(i, spectrum[i]);
+  }
+  spectrum[0] = bSi * x[0];
+
+  return spectrum;
+};
 
 function Sampler(file, bufferSize, sampleRate, playStart, playEnd, loopStart, loopEnd, loopMode) {
   this.file = file;
