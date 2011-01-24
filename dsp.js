@@ -250,14 +250,27 @@ function FourierTransform(bufferSize, sampleRate) {
     return this.bandwidth * index + this.bandwidth / 2;
   };
 
-  this.calculateMagnitude = function(real, imag) {
-    return 2 / this.bufferSize * Math.sqrt(real * real + imag * imag);
-  };
+  this.calculateSpectrum = function() {
+    var spectrum  = this.spectrum,
+        real      = this.real,
+        imag      = this.imag,
+        bSi       = 2 / this.bufferSize,
+        sqrt      = Math.sqrt,
+        rval, 
+        ival,
+        mag;
 
-  this.calculatePeak = function(band, magnitude) {
-    if (magnitude > this.peak) {
-      this.peakBand = band;
-      this.peak = magnitude;
+    for (var i = 0, N = bufferSize/2; i < N; i++) {
+      rval = real[i];
+      ival = imag[i];
+      mag = bSi * sqrt(rval * rval + ival * ival);
+
+      if (mag > this.peak) {
+        this.peakBand = i;
+        this.peak = mag;
+      }
+
+      spectrum[i] = mag;
     }
   };
 }
@@ -312,15 +325,7 @@ DFT.prototype.forward = function(buffer) {
     imag[k] = ival;
   }
 
-  var spectrum = this.spectrum;
-  var bSi = 2 / this.bufferSize;
- 
-  for (var i = 0; i < this.bufferSize/2; i++) {
-    spectrum[i] = bSi * Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
-    this.calculatePeak(i, spectrum[i]);
-  }
-
-  return spectrum;
+  return this.calculateSpectrum();
 };
 
 
@@ -429,16 +434,7 @@ FFT.prototype.forward = function(buffer) {
     halfSize = halfSize << 1;
   }
 
-  i = bufferSize/2;
-
-  var bSi = 2 / bufferSize;
-  
-  while(i--) {
-    spectrum[i] =  bSi * Math.sqrt(real[i] * real[i] + imag[i] * imag[i]);
-    this.calculatePeak(i, spectrum[i]);
-  }
-
-  return spectrum;
+  return this.calculateSpectrum();
 };
 
 FFT.prototype.inverse = function(real, imag) {
@@ -508,7 +504,7 @@ FFT.prototype.inverse = function(real, imag) {
     halfSize = halfSize << 1;
   }
 
-  var buffer = new Float32Array(bufferSize);
+  var buffer = new Float32Array(bufferSize); // this should be reused instead
   for (i = 0; i < bufferSize; i++) {
     buffer[i] = real[i] / bufferSize;
   }
@@ -555,6 +551,7 @@ function RFFT(bufferSize, sampleRate) {
       //swap(a[x], a[r]);
       d[x] = s[r];
       d[r] = s[x];
+
       x++;
    
       h = nh;
@@ -590,13 +587,25 @@ function RFFT(bufferSize, sampleRate) {
 // trans[n-1]   = im[1] 
 
 RFFT.prototype.forward = function(buffer) {
-  var n = this.bufferSize, x = this.trans, n2, n4, n8, nn, st1, t1, t2, t3, t4, ix, id, i0, i1, i2, i3, i4, i5, i6, i7, i8, e, a, j, cc1, ss1, cc3, ss3;
-  var TWO_PI = 2*Math.PI, SQRT1_2 = Math.SQRT1_2;
+  var n         = this.bufferSize, 
+      spectrum  = this.spectrum,
+      x         = this.trans, 
+      TWO_PI    = 2*Math.PI,
+      sqrt      = Math.sqrt,
+      i         = n >>> 1,
+      bSi       = 2 / n,
+      n2, n4, n8, nn, 
+      t1, t2, t3, t4, 
+      i1, i2, i3, i4, i5, i6, i7, i8, 
+      st1, cc1, ss1, cc3, ss3,
+      e, 
+      a,
+      rval, ival, mag; 
 
   this.reverseBinPermute(x, buffer);
 
-  for (ix = 0, id = 4; ix < n; id *= 4) {
-    for (i0 = ix; i0 < n; i0 += id) {
+  for (var ix = 0, id = 4; ix < n; id *= 4) {
+    for (var i0 = ix; i0 < n; i0 += id) {
       //sumdiff(x[i0], x[i0+1]); // {a, b}  <--| {a+b, a-b}
       st1 = x[i0] - x[i0+1];
       x[i0] += x[i0+1];
@@ -638,8 +647,8 @@ RFFT.prototype.forward = function(buffer) {
           t1 = x[i3] + x[i4];
           t2 = x[i3] - x[i4];
          
-          t1 = -t1 * SQRT1_2;
-          t2 *= SQRT1_2;
+          t1 = -t1 * Math.SQRT1_2;
+          t2 *= Math.SQRT1_2;
      
           // sumdiff(t1, x[i2], x[i4], x[i3]); // {s, d}  <--| {a+b, a-b}
           st1 = x[i2];
@@ -673,7 +682,7 @@ RFFT.prototype.forward = function(buffer) {
  
     e = TWO_PI / n2;
 
-    for (j = 1; j < n8; j++) {
+    for (var j = 1; j < n8; j++) {
       a = j * e;
       ss1 = Math.sin(a);
       cc1 = Math.cos(a);
@@ -733,25 +742,26 @@ RFFT.prototype.forward = function(buffer) {
           x[i5] -= t4;
         }
      
-        ix = (id<<1) - n2;
+        ix = id << 1 - n2;
         id = id << 2;
    
       } while (ix < n);
     }
   }
 
-  var spectrum = this.spectrum;
-  var i = (n>>>1);
-  var bSi = 2.0 / n;
-
-  var real, imag;
-
   while (--i) {
-    real = x[i];
-    imag = x[n-i-1];
-    spectrum[i] = bSi * Math.sqrt(real * real + imag * imag);
-    this.calculatePeak(i, spectrum[i]);
+    rval = x[i];
+    ival = x[n-i-1];
+    mag = bSi * sqrt(rval * rval + ival * ival);
+
+    if (mag > this.peak) {
+      this.peakBand = i;
+      this.peak = mag;
+    }
+
+    spectrum[i] = mag;
   }
+
   spectrum[0] = bSi * x[0];
 
   return spectrum;
