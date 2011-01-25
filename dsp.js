@@ -541,34 +541,33 @@ function RFFT(bufferSize, sampleRate) {
   this.trans = new Float32Array(bufferSize);
 
   // don't use a lookup table to do the permute, use this instead
-  this.reverseBinPermute = function (d, s) {
-    var nh = d.length >>> 1, nm1 = d.length - 1, x = 1, r = 0, h;
+  this.reverseBinPermute = function (dest, source) {
+    var bufferSize  = this.bufferSize, 
+        halfSize    = bufferSize >>> 1, 
+        nm1         = bufferSize - 1, 
+        i = 1, r = 0, h;
 
-    d[0] = s[0];
+    dest[0] = source[0];
 
     do {
-      r = r + nh;
-      //swap(a[x], a[r]);
-      d[x] = s[r];
-      d[r] = s[x];
+      r += halfSize;
+      dest[i] = source[r];
+      dest[r] = source[i];
 
-      x++;
-   
-      h = nh;
+      i++;
 
-      while (!((r ^= h) & h)) { 
-        h = h >> 1;
-      } 
-      
-      if (r >= x) { //swap(a[x], a[r]);
-        d[x] = s[r]; 
-        d[r] = s[x];
-        d[nm1-x] = s[nm1-r]; 
-        d[nm1-r] = s[nm1-x];
+      h = halfSize << 1;
+      while (h = h >> 1, !((r ^= h) & h));
+
+      if (r >= i) { 
+        dest[i]     = source[r]; 
+        dest[r]     = source[i];
+        dest[nm1-i] = source[nm1-r]; 
+        dest[nm1-r] = source[nm1-i];
       }
-      x++;
-    } while (x < nh);
-    d[nm1] = s[nm1];
+      i++;
+    } while (i < halfSize);
+    dest[nm1] = source[nm1];
   };
 }
 
@@ -686,7 +685,7 @@ RFFT.prototype.forward = function(buffer) {
       a = j * e;
       ss1 = Math.sin(a);
       cc1 = Math.cos(a);
-      
+
       //ss3 = sin(3*a); cc3 = cos(3*a);
       cc3 = 4*cc1*(cc1*cc1-0.75);
       ss3 = 4*ss1*(0.75-ss1*ss1);
