@@ -741,7 +741,7 @@ RFFT.prototype.forward = function(buffer) {
           x[i5] -= t4;
         }
      
-        ix = id << 1 - n2;
+        ix = (id << 1) - n2;
         id = id << 2;
    
       } while (ix < n);
