@@ -130,9 +130,30 @@ DSP.interleave = function(left, right) {
  * @returns an Array containing left and right channels
  */
 DSP.deinterleave = (function() {
-  var left, right, mix; 
+  var left, right, mix, deinterleaveChannel = []; 
 
-  return function(buffer) { 
+  deinterleaveChannel[DSP.MIX] = function(buffer) {
+    for (var i = 0, len = buffer.length/2; i < len; i++) {
+      mix[i] = (buffer[2*i] + buffer[2*i+1]) / 2;
+    }
+    return mix;
+  };
+
+  deinterleaveChannel[DSP.LEFT] = function(buffer) {
+    for (var i = 0, len = buffer.length/2; i < len; i++) {
+      left[i]  = buffer[2*i];
+    }
+    return left;
+  };
+
+  deinterleaveChannel[DSP.RIGHT] = function(buffer) {
+    for (var i = 0, len = buffer.length/2; i < len; i++) {
+      right[i]  = buffer[2*i+1];
+    }
+    return right;
+  };
+
+  return function(channel, buffer) { 
     left  = left  || new Float32Array(buffer.length/2);
     right = right || new Float32Array(buffer.length/2);
     mix   = mix   || new Float32Array(buffer.length/2);
@@ -143,14 +164,15 @@ DSP.deinterleave = (function() {
       mix   = new Float32Array(buffer.length/2);
     }
 
+    /*
     for (var i = 0, len = buffer.length/2; i < len; i++) {
       left[i]  = buffer[2*i];
       right[i] = buffer[2*i+1];
       mix[i]   = (left[i] + right[i]) / 2;
-      //mix[i] = (buffer[2*i] + buffer[2*i+1]) /2;
     }
-   
-    return [left, right, mix];
+    */
+
+    return deinterleaveChannel[channel](buffer);
   };
 }());
 
@@ -162,9 +184,7 @@ DSP.deinterleave = (function() {
  *
  * @returns an Array containing a signal mono sample buffer
  */
-DSP.getChannel = function(channel, buffer) {
-  return DSP.deinterleave(buffer)[channel];
-};
+DSP.getChannel = DSP.deinterleave;
 
 /**
  * Helper method (for Reverb) to mix two (interleaved) samplebuffers. It's possible
@@ -357,6 +377,7 @@ function FFT(bufferSize, sampleRate) {
     bit = bit >> 1;
   }
 
+  /*
   this.sinTable = new Float32Array(bufferSize);
   this.cosTable = new Float32Array(bufferSize);
 
@@ -364,6 +385,7 @@ function FFT(bufferSize, sampleRate) {
     this.sinTable[i] = Math.sin(-Math.PI/i);
     this.cosTable[i] = Math.cos(-Math.PI/i);
   }
+  */
 }
 
 /**
@@ -377,8 +399,8 @@ function FFT(bufferSize, sampleRate) {
 FFT.prototype.forward = function(buffer) {
   // Locally scope variables for speed up
   var bufferSize      = this.bufferSize,
-      cosTable        = this.cosTable,
-      sinTable        = this.sinTable,
+      //cosTable        = this.cosTable,
+      //sinTable        = this.sinTable,
       reverseTable    = this.reverseTable,
       real            = this.real,
       imag            = this.imag,
@@ -405,8 +427,12 @@ FFT.prototype.forward = function(buffer) {
   }
 
   while (halfSize < bufferSize) {
-    phaseShiftStepReal = cosTable[halfSize];
-    phaseShiftStepImag = sinTable[halfSize];
+    //phaseShiftStepReal = cosTable[halfSize];
+    //phaseShiftStepImag = sinTable[halfSize];
+
+    phaseShiftStepReal = Math.cos(-Math.PI/halfSize);
+    phaseShiftStepImag = Math.sin(-Math.PI/halfSize);
+    
     currentPhaseShiftReal = 1;
     currentPhaseShiftImag = 0;
 
@@ -540,6 +566,8 @@ function RFFT(bufferSize, sampleRate) {
 
   this.trans = new Float32Array(bufferSize);
 
+  this.reverseTable = new Uint32Array(bufferSize);
+
   // don't use a lookup table to do the permute, use this instead
   this.reverseBinPermute = function (dest, source) {
     var bufferSize  = this.bufferSize, 
@@ -553,7 +581,7 @@ function RFFT(bufferSize, sampleRate) {
       r += halfSize;
       dest[i] = source[r];
       dest[r] = source[i];
-
+      
       i++;
 
       h = halfSize << 1;
@@ -562,6 +590,7 @@ function RFFT(bufferSize, sampleRate) {
       if (r >= i) { 
         dest[i]     = source[r]; 
         dest[r]     = source[i];
+
         dest[nm1-i] = source[nm1-r]; 
         dest[nm1-r] = source[nm1-i];
       }
@@ -569,6 +598,40 @@ function RFFT(bufferSize, sampleRate) {
     } while (i < halfSize);
     dest[nm1] = source[nm1];
   };
+
+  this.generateReverseTable = function () {
+    var bufferSize  = this.bufferSize, 
+        halfSize    = bufferSize >>> 1, 
+        nm1         = bufferSize - 1, 
+        i = 1, r = 0, h;
+
+    this.reverseTable[0] = 0;
+
+    do {
+      r += halfSize;
+      
+      this.reverseTable[i] = r;
+      this.reverseTable[r] = i;
+
+      i++;
+
+      h = halfSize << 1;
+      while (h = h >> 1, !((r ^= h) & h));
+
+      if (r >= i) { 
+        this.reverseTable[i] = r;
+        this.reverseTable[r] = i;
+
+        this.reverseTable[nm1-i] = nm1-r;
+        this.reverseTable[nm1-r] = nm1-i;
+      }
+      i++;
+    } while (i < halfSize);
+
+    this.reverseTable[nm1] = nm1;
+  };
+
+  this.generateReverseTable();
 }
 
 
@@ -602,6 +665,13 @@ RFFT.prototype.forward = function(buffer) {
       rval, ival, mag; 
 
   this.reverseBinPermute(x, buffer);
+  /*
+  var reverseTable = this.reverseTable;
+
+  for (var k = 0, len = reverseTable.length; k < len; k++) {
+    x[k] = buffer[reverseTable[k]];
+  }
+  */
 
   for (var ix = 0, id = 4; ix < n; id *= 4) {
     for (var i0 = ix; i0 < n; i0 += id) {
