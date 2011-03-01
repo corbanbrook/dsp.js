@@ -12,5 +12,8 @@ benchmark:
 	${JSSHELL} -m -j -p -e 'var FREQUENCY=${FREQUENCY};' -f dsp.js -f ./bench/bench.js -f ./bench/rfft.js
 	${JSSHELL} -m -j -p -f dsp.js -f ./bench/bench.js -f ./bench/deinterleave.js
 
+check-lint:
+	${JSSHELL} -m -j -p -e "load('./support/jslint.js'); load('./support/jslint-cmdline.js'); runJslint(read('dsp.js'));"
+
 clean:
 	rm -fr ./release

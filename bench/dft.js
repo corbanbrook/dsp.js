@@ -2,8 +2,8 @@ var bufferSize = 2048;
 var sampleRate = 44100;
 var frequency = FREQUENCY || 440;
 
-var dft = new DFT(bufferSize, sampleRate);
-var osc = new Oscillator(DSP.SAW, frequency, 1.0, bufferSize, sampleRate);
+var dft = new DSP.DFT(bufferSize, sampleRate);
+var osc = new DSP.Oscillator(DSP.SAW, frequency, 1.0, bufferSize, sampleRate);
 var signal = osc.generate();
 
 var duration = benchmark(function() { dft.forward(signal); }, 20);
