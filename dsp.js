@@ -164,14 +164,6 @@ DSP.deinterleave = (function() {
       mix   = new Float32Array(buffer.length/2);
     }
 
-    /*
-    for (var i = 0, len = buffer.length/2; i < len; i++) {
-      left[i]  = buffer[2*i];
-      right[i] = buffer[2*i+1];
-      mix[i]   = (left[i] + right[i]) / 2;
-    }
-    */
-
     return deinterleaveChannel[channel](buffer);
   };
 }());
@@ -361,7 +353,7 @@ DFT.prototype.forward = function(buffer) {
 function FFT(bufferSize, sampleRate) {
   FourierTransform.call(this, bufferSize, sampleRate);
    
-  this.reverseTable     = new Uint32Array(bufferSize);
+  this.reverseTable = new Uint32Array(bufferSize);
 
   var limit = 1;
   var bit = bufferSize >> 1;
@@ -377,7 +369,6 @@ function FFT(bufferSize, sampleRate) {
     bit = bit >> 1;
   }
 
-  /*
   this.sinTable = new Float32Array(bufferSize);
   this.cosTable = new Float32Array(bufferSize);
 
@@ -385,7 +376,6 @@ function FFT(bufferSize, sampleRate) {
     this.sinTable[i] = Math.sin(-Math.PI/i);
     this.cosTable[i] = Math.cos(-Math.PI/i);
   }
-  */
 }
 
 /**
@@ -399,16 +389,17 @@ function FFT(bufferSize, sampleRate) {
 FFT.prototype.forward = function(buffer) {
   // Locally scope variables for speed up
   var bufferSize      = this.bufferSize,
-      //cosTable        = this.cosTable,
-      //sinTable        = this.sinTable,
+      cosTable        = this.cosTable,
+      sinTable        = this.sinTable,
       reverseTable    = this.reverseTable,
       real            = this.real,
       imag            = this.imag,
       spectrum        = this.spectrum;
 
   var k = Math.floor(Math.log(bufferSize) / Math.LN2);
+
   if (Math.pow(2, k) !== bufferSize) { throw "Invalid buffer size, must be a power of 2."; }
-  if (bufferSize !== buffer.length) { throw "Supplied buffer is not the same size as defined FFT. FFT Size: " + bufferSize + " Buffer Size: " + buffer.length; }
+  if (bufferSize !== buffer.length)  { throw "Supplied buffer is not the same size as defined FFT. FFT Size: " + bufferSize + " Buffer Size: " + buffer.length; }
 
   var halfSize = 1,
       phaseShiftStepReal,
@@ -427,11 +418,10 @@ FFT.prototype.forward = function(buffer) {
   }
 
   while (halfSize < bufferSize) {
-    //phaseShiftStepReal = cosTable[halfSize];
-    //phaseShiftStepImag = sinTable[halfSize];
-
-    phaseShiftStepReal = Math.cos(-Math.PI/halfSize);
-    phaseShiftStepImag = Math.sin(-Math.PI/halfSize);
+    //phaseShiftStepReal = Math.cos(-Math.PI/halfSize);
+    //phaseShiftStepImag = Math.sin(-Math.PI/halfSize);
+    phaseShiftStepReal = cosTable[halfSize];
+    phaseShiftStepImag = sinTable[halfSize];
     
     currentPhaseShiftReal = 1;
     currentPhaseShiftImag = 0;
@@ -665,6 +655,7 @@ RFFT.prototype.forward = function(buffer) {
       rval, ival, mag; 
 
   this.reverseBinPermute(x, buffer);
+
   /*
   var reverseTable = this.reverseTable;
 
@@ -811,7 +802,7 @@ RFFT.prototype.forward = function(buffer) {
           x[i5] -= t4;
         }
      
-        ix = id << 1 - n2;
+        ix = (id << 1) - n2;
         id = id << 2;
    
       } while (ix < n);
