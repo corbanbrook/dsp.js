@@ -311,7 +311,7 @@ function DFT(bufferSize, sampleRate) {
 }
 
 /**
- * Performs a forward tranform on the sample buffer.
+ * Performs a forward transform on the sample buffer.
  * Converts a time domain signal to frequency domain spectra.
  *
  * @param {Array} buffer The sample buffer
@@ -379,7 +379,7 @@ function FFT(bufferSize, sampleRate) {
 }
 
 /**
- * Performs a forward tranform on the sample buffer.
+ * Performs a forward transform on the sample buffer.
  * Converts a time domain signal to frequency domain spectra.
  *
  * @param {Array} buffer The sample buffer. Buffer Length must be power of 2
