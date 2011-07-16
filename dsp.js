@@ -238,7 +238,7 @@ DSP.Peak = function(buffer) {
   return peak;
 };
 
-// Fourier Transform Module used by DFT, FFT, RFT
+// Fourier Transform Module used by DFT, FFT, RFFT
 function FourierTransform(bufferSize, sampleRate) {
   this.bufferSize = bufferSize;
   this.sampleRate = sampleRate;
