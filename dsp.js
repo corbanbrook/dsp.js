@@ -935,8 +935,10 @@ Sampler.prototype.generate = function() {
 };
 
 Sampler.prototype.setFreq = function(frequency) {
-  this.frequency = frequency;
-  this.step = this.frequency / this.rootFrequency;
+    var totalProcessed = this.samplesProcessed * this.step;
+    this.frequency = frequency;
+    this.step = this.frequency / this.rootFrequency;
+    this.samplesProcessed = Math.round(totalProcessed/this.step);
 };
 
 Sampler.prototype.reset = function() {
