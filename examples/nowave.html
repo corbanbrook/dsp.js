@@ -1,5 +1,8 @@
-<html>
-  <head>      
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">     
     <script language="javascript" src="js/processing.js"></script>
     <script language="javascript" src="js/init.js"></script>
     <script language="javascript" src="../dsp.js"></script>
@@ -14,17 +17,23 @@
       var lp12;
       var windowFunc;
 
-      // Setup experimental audio out
-      var output = new Audio();
-
-      if ( typeof output.mozSetup === 'function' ) {
-        output.mozSetup(1, sampleRate, 1);
-      }
+      //Get audio context and setup buffer
+      var audioCtx = new AudioContext();
+      var buffArray = audioCtx.createBuffer(1, bufferSize, sampleRate);
+      var buff = buffArray.getChannelData(0);
 
       var audioWriter = function(s) {     
-        if ( typeof output.mozWriteAudio === 'function' ) {
-          output.mozWriteAudio(s);
+        //Fill Buffer
+        for (i = 0; i < bufferSize; ++i)
+        {
+          buff[i] = s[i];
         }
+
+        //Setup an AudioNode to play the buffer
+        var source = audioCtx.createBufferSource();
+        source.buffer = buffArray;
+        source.connect(audioCtx.destination);
+        source.start();
       }
     </script>
     
