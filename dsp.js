@@ -74,7 +74,7 @@ function setupTypedArray(name, fallback) {
   }
 }
 
-setupTypedArray("Float32Array", "WebGLFloatArray");
+setupTypedArray("Float64Array", "WebGLFloatArray");
 setupTypedArray("Int32Array",   "WebGLIntArray");
 setupTypedArray("Uint16Array",  "WebGLUnsignedShortArray");
 setupTypedArray("Uint8Array",   "WebGLUnsignedByteArray");
@@ -112,7 +112,7 @@ DSP.interleave = function(left, right) {
     throw "Can not interleave. Channel lengths differ.";
   }
  
-  var stereoInterleaved = new Float32Array(left.length * 2);
+  var stereoInterleaved = new Float64Array(left.length * 2);
  
   for (var i = 0, len = left.length; i < len; i++) {
     stereoInterleaved[2*i]   = left[i];
@@ -154,14 +154,14 @@ DSP.deinterleave = (function() {
   };
 
   return function(channel, buffer) { 
-    left  = left  || new Float32Array(buffer.length/2);
-    right = right || new Float32Array(buffer.length/2);
-    mix   = mix   || new Float32Array(buffer.length/2);
+    left  = left  || new Float64Array(buffer.length/2);
+    right = right || new Float64Array(buffer.length/2);
+    mix   = mix   || new Float64Array(buffer.length/2);
 
     if (buffer.length/2 !== left.length) {
-      left  = new Float32Array(buffer.length/2);
-      right = new Float32Array(buffer.length/2);
-      mix   = new Float32Array(buffer.length/2);
+      left  = new Float64Array(buffer.length/2);
+      right = new Float64Array(buffer.length/2);
+      mix   = new Float64Array(buffer.length/2);
     }
 
     return deinterleaveChannel[channel](buffer);
@@ -183,15 +183,15 @@ DSP.getChannel = DSP.deinterleave;
  * to negate the second buffer while mixing and to perform a volume correction
  * on the final signal.
  *
- * @param {Array} sampleBuffer1 Array containing Float values or a Float32Array
- * @param {Array} sampleBuffer2 Array containing Float values or a Float32Array
+ * @param {Array} sampleBuffer1 Array containing Float values or a Float64Array
+ * @param {Array} sampleBuffer2 Array containing Float values or a Float64Array
  * @param {Boolean} negate When true inverts/flips the audio signal
  * @param {Number} volumeCorrection When you add multiple sample buffers, use this to tame your signal ;)
  *
- * @returns A new Float32Array interleaved buffer.
+ * @returns A new Float64Array interleaved buffer.
  */
 DSP.mixSampleBuffers = function(sampleBuffer1, sampleBuffer2, negate, volumeCorrection){
-  var outputSamples = new Float32Array(sampleBuffer1);
+  var outputSamples = new Float64Array(sampleBuffer1);
 
   for(var i = 0; i<sampleBuffer1.length; i++){
     outputSamples[i] += (negate ? -sampleBuffer2[i] : sampleBuffer2[i]) / volumeCorrection;
@@ -244,9 +244,9 @@ function FourierTransform(bufferSize, sampleRate) {
   this.sampleRate = sampleRate;
   this.bandwidth  = 2 / bufferSize * sampleRate / 2;
 
-  this.spectrum   = new Float32Array(bufferSize/2);
-  this.real       = new Float32Array(bufferSize);
-  this.imag       = new Float32Array(bufferSize);
+  this.spectrum   = new Float64Array(bufferSize/2);
+  this.real       = new Float64Array(bufferSize);
+  this.imag       = new Float64Array(bufferSize);
 
   this.peakBand   = 0;
   this.peak       = 0;
@@ -301,8 +301,8 @@ function DFT(bufferSize, sampleRate) {
   var N = bufferSize/2 * bufferSize;
   var TWO_PI = 2 * Math.PI;
 
-  this.sinTable = new Float32Array(N);
-  this.cosTable = new Float32Array(N);
+  this.sinTable = new Float64Array(N);
+  this.cosTable = new Float64Array(N);
 
   for (var i = 0; i < N; i++) {
     this.sinTable[i] = Math.sin(i * TWO_PI / bufferSize);
@@ -369,8 +369,8 @@ function FFT(bufferSize, sampleRate) {
     bit = bit >> 1;
   }
 
-  this.sinTable = new Float32Array(bufferSize);
-  this.cosTable = new Float32Array(bufferSize);
+  this.sinTable = new Float64Array(bufferSize);
+  this.cosTable = new Float64Array(bufferSize);
 
   for (i = 0; i < bufferSize; i++) {
     this.sinTable[i] = Math.sin(-Math.PI/i);
@@ -479,8 +479,8 @@ FFT.prototype.inverse = function(real, imag) {
     imag[i] *= -1;
   }
 
-  var revReal = new Float32Array(bufferSize);
-  var revImag = new Float32Array(bufferSize);
+  var revReal = new Float64Array(bufferSize);
+  var revImag = new Float64Array(bufferSize);
  
   for (i = 0; i < real.length; i++) {
     revReal[i] = real[reverseTable[i]];
@@ -520,7 +520,7 @@ FFT.prototype.inverse = function(real, imag) {
     halfSize = halfSize << 1;
   }
 
-  var buffer = new Float32Array(bufferSize); // this should be reused instead
+  var buffer = new Float64Array(bufferSize); // this should be reused instead
   for (i = 0; i < bufferSize; i++) {
     buffer[i] = real[i] / bufferSize;
   }
@@ -554,7 +554,7 @@ FFT.prototype.inverse = function(real, imag) {
 function RFFT(bufferSize, sampleRate) {
   FourierTransform.call(this, bufferSize, sampleRate);
 
-  this.trans = new Float32Array(bufferSize);
+  this.trans = new Float64Array(bufferSize);
 
   this.reverseTable = new Uint32Array(bufferSize);
 
@@ -838,7 +838,7 @@ function Sampler(file, bufferSize, sampleRate, playStart, playEnd, loopStart, lo
   this.loopMode   = loopMode  || DSP.OFF;
   this.loaded     = false;
   this.samples    = [];
-  this.signal     = new Float32Array(bufferSize);
+  this.signal     = new Float64Array(bufferSize);
   this.frameCount = 0;
   this.envelope   = null;
   this.amplitude  = 1;
@@ -861,7 +861,7 @@ function Sampler(file, bufferSize, sampleRate, playStart, playEnd, loopStart, lo
  
   this.loadComplete = function() {
     // convert flexible js array into a fast typed array
-    self.samples = new Float32Array(self.samples);
+    self.samples = new Float64Array(self.samples);
     self.loaded = true;
   };
  
@@ -969,7 +969,7 @@ function Oscillator(type, frequency, amplitude, bufferSize, sampleRate) {
 
   this.cyclesPerSample = frequency / sampleRate;
 
-  this.signal = new Float32Array(bufferSize);
+  this.signal = new Float64Array(bufferSize);
   this.envelope = null;
 
   switch(parseInt(type, 10)) {
@@ -992,7 +992,7 @@ function Oscillator(type, frequency, amplitude, bufferSize, sampleRate) {
   }
 
   this.generateWaveTable = function() {
-    Oscillator.waveTable[this.func] = new Float32Array(2048);
+    Oscillator.waveTable[this.func] = new Float64Array(2048);
     var waveTableTime = this.waveTableLength / this.sampleRate;
     var waveTableHz = 1 / waveTableTime;
 
@@ -1310,7 +1310,7 @@ function IIRFilter2(type, cutoff, resonance, sampleRate) {
   this.resonance = resonance;
   this.sampleRate = sampleRate;
 
-  this.f = Float32Array(4);
+  this.f = Float64Array(4);
   this.f[0] = 0.0; // lp
   this.f[1] = 0.0; // hp
   this.f[2] = 0.0; // bp
@@ -1720,7 +1720,7 @@ function Biquad(type, sampleRate) {
       //       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
 
       var len = buffer.length;
-      var output = new Float32Array(len);
+      var output = new Float64Array(len);
 
       for ( var i=0; i<buffer.length; i++ ) {
         output[i] = this.b0a0*buffer[i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
@@ -1738,7 +1738,7 @@ function Biquad(type, sampleRate) {
       //       - (a1/a0)*y[n-1] - (a2/a0)*y[n-2]
 
       var len = buffer.length;
-      var output = new Float32Array(len);
+      var output = new Float64Array(len);
      
       for (var i = 0; i < len/2; i++) {
         output[2*i] = this.b0a0*buffer[2*i] + this.b1a0*this.x_1_l + this.b2a0*this.x_2_l - this.a1a0*this.y_1_l - this.a2a0*this.y_2_l;
@@ -1776,7 +1776,7 @@ DSP.mag2db = function(buffer) {
   var log = Math.log;
   var max = Math.max;
  
-  var result = Float32Array(buffer.length);
+  var result = Float64Array(buffer.length);
   for (var i=0; i<buffer.length; i++) {
     result[i] = 20.0*log(max(buffer[i], minMag));
   }
@@ -1803,13 +1803,13 @@ DSP.freqz = function(b, a, w) {
   var i, j;
 
   if (!w) {
-    w = Float32Array(200);
+    w = Float64Array(200);
     for (i=0;i<w.length; i++) {
       w[i] = DSP.TWO_PI/w.length * i - Math.PI;
     }
   }
 
-  var result = Float32Array(w.length);
+  var result = Float64Array(w.length);
  
   var sqrt = Math.sqrt;
   var cos = Math.cos;
@@ -1909,7 +1909,7 @@ function GraphicalEq(sampleRate) {
     }
        
     if (!this.w) {
-      this.w = Float32Array(400);
+      this.w = Float64Array(400);
       for (var i=0; i<this.w.length; i++) {
          this.w[i] = Math.PI/this.w.length * i;
       }
@@ -1961,7 +1961,7 @@ function GraphicalEq(sampleRate) {
  * @constructor
  */
 function MultiDelay(maxDelayInSamplesSize, delayInSamples, masterVolume, delayVolume) {
-  this.delayBufferSamples   = new Float32Array(maxDelayInSamplesSize); // The maximum size of delay
+  this.delayBufferSamples   = new Float64Array(maxDelayInSamplesSize); // The maximum size of delay
   this.delayInputPointer     = delayInSamples;
   this.delayOutputPointer   = 0;
  
@@ -2006,13 +2006,13 @@ MultiDelay.prototype.setDelayVolume = function(delayVolume) {
 /**
  * Process a given interleaved or mono non-interleaved float value Array and adds the delayed audio.
  *
- * @param {Array} samples Array containing Float values or a Float32Array
+ * @param {Array} samples Array containing Float values or a Float64Array
  *
- * @returns A new Float32Array interleaved or mono non-interleaved as was fed to this function.
+ * @returns A new Float64Array interleaved or mono non-interleaved as was fed to this function.
  */
 MultiDelay.prototype.process = function(samples) {
   // NB. Make a copy to put in the output samples to return.
-  var outputSamples = new Float32Array(samples.length);
+  var outputSamples = new Float64Array(samples.length);
 
   for (var i=0; i<samples.length; i++) {
     // delayBufferSamples could contain initial NULL's, return silence in that case
@@ -2062,7 +2062,7 @@ MultiDelay.prototype.process = function(samples) {
  */
 
 function SingleDelay(maxDelayInSamplesSize, delayInSamples, delayVolume) {
-  this.delayBufferSamples = new Float32Array(maxDelayInSamplesSize); // The maximum size of delay
+  this.delayBufferSamples = new Float64Array(maxDelayInSamplesSize); // The maximum size of delay
   this.delayInputPointer  = delayInSamples;
   this.delayOutputPointer = 0;
  
@@ -2097,13 +2097,13 @@ SingleDelay.prototype.setDelayVolume = function(delayVolume) {
  * Process a given interleaved or mono non-interleaved float value Array and
  * returns the delayed audio.
  *
- * @param {Array} samples Array containing Float values or a Float32Array
+ * @param {Array} samples Array containing Float values or a Float64Array
  *
- * @returns A new Float32Array interleaved or mono non-interleaved as was fed to this function.
+ * @returns A new Float64Array interleaved or mono non-interleaved as was fed to this function.
  */
 SingleDelay.prototype.process = function(samples) {
   // NB. Make a copy to put in the output samples to return.
-  var outputSamples = new Float32Array(samples.length);
+  var outputSamples = new Float64Array(samples.length);
 
   for (var i=0; i<samples.length; i++) {
 
@@ -2255,13 +2255,13 @@ Reverb.prototype.setDampFrequency = function (dampFrequency){
 /**
  * Process a given interleaved float value Array and copies and adds the reverb signal.
  *
- * @param {Array} samples Array containing Float values or a Float32Array
+ * @param {Array} samples Array containing Float values or a Float64Array
  *
- * @returns A new Float32Array interleaved buffer.
+ * @returns A new Float64Array interleaved buffer.
  */
 Reverb.prototype.process = function (interleavedSamples){ 
   // NB. Make a copy to put in the output samples to return.
-  var outputSamples = new Float32Array(interleavedSamples.length);
+  var outputSamples = new Float64Array(interleavedSamples.length);
  
   // Perform low pass on the input samples to mimick damp
   var leftRightMix = DSP.deinterleave(interleavedSamples);
@@ -2278,7 +2278,7 @@ Reverb.prototype.process = function (interleavedSamples){
   }
  
   // Process SingleDelays in series
-  var singleDelaySamples = new Float32Array(outputSamples.length);
+  var singleDelaySamples = new Float64Array(outputSamples.length);
   for (i = 0; i<this.NR_OF_SINGLEDELAYS; i++) {
     // Invert the signal of every even singleDelay
     singleDelaySamples = DSP.mixSampleBuffers(singleDelaySamples, this.singleDelays[i].process(outputSamples), 2%i === 0, 1);
