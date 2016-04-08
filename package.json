@@ -2,7 +2,7 @@
   "name": "dsp.js",
   "version": "1.0.0",
   "description": "Digital Signal Processing for Javascript http://weare.buildingsky.net",
-  "main": "dsp.js",
+  "main": "index.js",
   "directories": {
     "example": "examples",
     "test": "test"
