@@ -1,0 +1,25 @@
+{
+  "name": "dsp.js",
+  "version": "1.0.0",
+  "description": "Digital Signal Processing for Javascript http://weare.buildingsky.net",
+  "main": "dsp.js",
+  "directories": {
+    "example": "examples",
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/corbanbrook/dsp.js.git"
+  },
+  "keywords": [
+    "dsp",
+    "dft",
+    "fft"
+  ],
+  "author": "Corban Brook",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/corbanbrook/dsp.js/issues"
+  },
+  "homepage": "https://github.com/corbanbrook/dsp.js#readme"
+}
