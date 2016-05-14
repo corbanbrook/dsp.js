@@ -822,7 +822,7 @@ RFFT.prototype.forward = function(buffer) {
     spectrum[i] = mag;
   }
 
-  spectrum[0] = bSi * x[0];
+  spectrum[0] = Math.abs(bSi * x[0]);
 
   return spectrum;
 };
