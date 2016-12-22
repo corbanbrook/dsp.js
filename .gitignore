@@ -3,3 +3,5 @@ examples/audio
 .project
 *~
 .idea
+node_modules/
+npm-debug.log

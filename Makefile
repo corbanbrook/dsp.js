@@ -7,9 +7,9 @@ VERSION ?= $(error Specify a version for your release (e.g., VERSION=0.5))
 FREQUENCY ?= 440
 
 benchmark:
-	${JSSHELL} -m -j -p -e 'var FREQUENCY=${FREQUENCY};' -f dsp.js -f ./bench/bench.js -f ./bench/dft.js
-	${JSSHELL} -m -j -p -e 'var FREQUENCY=${FREQUENCY};' -f dsp.js -f ./bench/bench.js -f ./bench/fft.js
-	${JSSHELL} -m -j -p -e 'var FREQUENCY=${FREQUENCY};' -f dsp.js -f ./bench/bench.js -f ./bench/rfft.js
+	${JSSHELL} -m -j -p -e 'var FREQUENCY=${FREQUENCY};' -f ./dist/dsp.js -f ./bench/bench.js -f ./bench/dft.js
+	${JSSHELL} -m -j -p -e 'var FREQUENCY=${FREQUENCY};' -f ./dist/dsp.js -f ./bench/bench.js -f ./bench/fft.js
+	${JSSHELL} -m -j -p -e 'var FREQUENCY=${FREQUENCY};' -f ./dist/dsp.js -f ./bench/bench.js -f ./bench/rfft.js
 	${JSSHELL} -m -j -p -f dsp.js -f ./bench/bench.js -f ./bench/deinterleave.js
 
 clean:

@@ -3,13 +3,13 @@
   <head>
     <!-- Load JQuery and JQuery-UI -->
     <script type="text/javascript" src="js/jquery-1.4.2.min.js"></script>
-    
+
     <!-- Load Processing.js -->
     <script language="javascript" src="js/processing.js"></script>
     <script language="javascript" src="js/init.js"></script>
 
     <!-- Load DSP.js -->
-    <script src="../dsp.js"></script>
+    <script src="../dist/dsp.js"></script>
 
     <style type="text/css">
       body, * {
@@ -45,7 +45,7 @@
         margin-bottom: 16px;
         width: 8px;
       }
-      
+
       .ui-slider .ui-slider-handle {
         width: 8px;
         margin-left: 3px;
@@ -57,7 +57,7 @@
       // Setup shared variables
       var sampleRate = 44100;
       var frameSize = 4096;
-      
+
       var signal = new Float32Array(frameSize/2);
       var lp12;
       var buffer = [];
@@ -65,7 +65,7 @@
 
       // Setup experimental audio out
       var output = new Audio();
-      
+
       if ( typeof output.mozSetup === 'function' ) {
         output.mozSetup(1, sampleRate);
       }
@@ -86,7 +86,7 @@
         output.mozWriteAudio(signal);
       }
     </script>
-    
+
     <script type="application/processing" target="#signal">
       Knob cut;
       Knob res;
@@ -94,8 +94,8 @@
       void setup() {
         size(512, 200);
 
-        cut = new Knob("", 60, 6000, 2500, 70, 20, 50, 50);        
-        res = new Knob("", 1, 20, 7, 0.3, 20, 100, 50);        
+        cut = new Knob("", 60, 6000, 2500, 70, 20, 50, 50);
+        res = new Knob("", 1, 20, 7, 0.3, 20, 100, 50);
 
         lp12 = new IIRFilter(DSP.LOWPASS, 22050, 0, sampleRate);
 
@@ -104,7 +104,7 @@
 
         stroke(255, 0, 0);
       }
-      
+
       void draw() {
         background(255);
         lp12.set(cut.value, res.value);
@@ -165,7 +165,7 @@
             this.active = false;
             Knob.active = false;
           }
-          
+
           this.percent =  (this.value - this.min) / (this.max - this.min);
           this.angle = map(this.value, this.min, this.max, radians(-130), radians(130));
           pushMatrix();
@@ -182,7 +182,7 @@
         }
 
         boolean isOver() {
-          if (mouseX > this.x - this.radius && 
+          if (mouseX > this.x - this.radius &&
               mouseX < this.x + this.radius &&
               mouseY > this.y - this.radius &&
               mouseY < this.y + this.radius) {
@@ -193,10 +193,10 @@
       }
 
     </script>
-    
+
     <h1>Audio Filter</h1>
     <p>Applies a Low pass filter to an audio stream. Remember to <b>Mute</b> the audio to hear the pure filtered sound.</p>
-    <p>The low pass filter acts as a gate, only letting frequencies below the cut off value through.</p> 
+    <p>The low pass filter acts as a gate, only letting frequencies below the cut off value through.</p>
     <audio id='input' tabindex="0" src="audio/megaman.ogg" controls="true" onloadedmetadata="loadedMetaData(event);" style="width: 512px;"></audio><br>
     <div><canvas id="signal" width="512px" height="200px"></canvas></div>
 
