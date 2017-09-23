@@ -47,7 +47,7 @@ transforms, Delays, Reverb.
   * Low Pass Filter
   * High Pass Filter
   * Usage:
-    ```
+    ```js
     var filter = IIRFilter(LOWPASS, 200, 44100);
     filter.process(signal);
     ```
