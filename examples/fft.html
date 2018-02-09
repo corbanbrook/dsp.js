@@ -1,21 +1,21 @@
 <html>
-  <head>      
+  <head>
     <script language="javascript" src="js/processing.js"></script>
     <script language="javascript" src="js/init.js"></script>
-    <script language="javascript" src="../dsp.js"></script>
+    <script language="javascript" src="../dist/dsp.js"></script>
   </head>
   <body>
     <style>
       body { background: black; margin:0; padding:0;}
     </style>
-    
+
     <script>
       var frameBufferSize = 4096;
       var bufferSize = frameBufferSize/2;
-      
+
       var signal = new Float32Array(bufferSize);
       var peak = new Float32Array(bufferSize);
-      
+
       var fft = new FFT(bufferSize, 44100);
 
       function loadedMetaData(event) {
@@ -30,11 +30,11 @@
 
         // perform forward transform
         fft.forward(signal);
-        
+
         // calculate peak values
         for ( var i = 0; i < bufferSize; i++ ) {
           fft.spectrum[i] *= -1 * Math.log((fft.bufferSize/2 - i) * (0.5/fft.bufferSize/2)) * fft.bufferSize; // equalize, attenuates low freqs and boosts highs
-          
+
           if ( peak[i] < fft.spectrum[i] ) {
             peak[i] = fft.spectrum[i];
           } else {
@@ -43,7 +43,7 @@
         }
       }
     </script>
-    
+
     <script target="#fft" type="application/processing">
       void setup() {
         size(1400, 600);
@@ -52,19 +52,19 @@
         frameRate(60);
         //strokeCap(SQUARE);
       }
-      
+
       void draw() {
         background(0);
         //fill(0, 60);
         //rect(0, 0, width, height);
-        for ( int i = 0; i < fft.spectrum.length/2; i += 3 ) {          
+        for ( int i = 0; i < fft.spectrum.length/2; i += 3 ) {
           if (3 * i > width) { break; }
           var magnitude = fft.spectrum[i];
-          
+
           // draw magnitudes
           stroke((i) % 360, 60, constrain(magnitude * 6, 20, 100));
           line(3*i, height, 3*i, height - magnitude * 16);
-          
+
           // draw peak indicators
           stroke((i) % 360, 60, constrain(magnitude * 100, 50, 100));
           line(3*i, height - peak[i] * 16 - 1, 3*i, height - peak[i] * 16);
@@ -74,11 +74,11 @@
           println(FRAME_RATE);
         }
         */
-      } 
+      }
     </script>
-    
+
     <audio id="input" src="audio/corban-peddle.ogg" controls="true" onloadedmetadata="loadedMetaData(event);"></audio><br />
-    
+
     <div><canvas id="fft"></canvas></div>
   </body>
 </html>

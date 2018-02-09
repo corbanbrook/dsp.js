@@ -1,8 +1,8 @@
 <html>
-  <head>      
+  <head>
     <script language="javascript" src="js/processing.js"></script>
     <script language="javascript" src="js/init.js"></script>
-    <script language="javascript" src="../dsp.js"></script>
+    <script language="javascript" src="../dist/dsp.js"></script>
   </head>
   <body>
     <script>
@@ -21,13 +21,13 @@
         output.mozSetup(1, sampleRate, 1);
       }
 
-      var audioWriter = function(s) {     
+      var audioWriter = function(s) {
         if ( typeof output.mozWriteAudio === 'function' ) {
           output.mozWriteAudio(s);
         }
       }
     </script>
-    
+
     <script target="#signal" type="application/processing">
       int nthHarmonic = 1;
       float frequency = 200;
@@ -35,7 +35,7 @@
       void setup() {
         size(1024, 600);
         frameRate(60);
-        
+
         sine = new Oscillator(Oscillator.Sine, frequency, 1, bufferSize, sampleRate);
         sine.generate();
         lp12 = new IIRFilter(DSP.LOWPASS, 400, 1, sampleRate);
@@ -52,7 +52,7 @@
         rect(-10, -10, width + 20, height + 20);
 
 
-        if (nthHarmonic > 40 ) 
+        if (nthHarmonic > 40 )
         {
           sizes = [2048, 1024, 512, 256, 128, 512, 256, 128];
           frequency = constrain(random(200), 10, 200);
@@ -65,19 +65,19 @@
 
         frequency = constrain((mouseX/50) * (mouseX/50), 10, 1000);
 
-        
+
         // Add harmonic
         if ( nthHarmonic > 1 ) {
-          harmonic = new Oscillator(Oscillator.Sine, frequency*nthHarmonic, 1/nthHarmonic, bufferSize, sampleRate); 
+          harmonic = new Oscillator(Oscillator.Sine, frequency*nthHarmonic, 1/nthHarmonic, bufferSize, sampleRate);
           harmonic.generate();
-          sine.add(harmonic); 
+          sine.add(harmonic);
         }
-        
+
         nthHarmonic += 2; // 3rd, 5th, 7th, 9th, etc
 
-        
+
         // Draw additive signal
-        
+
         for ( int i = 0; i < width - 1; i+=4 ) {
           stroke((i + frameCount + 50) % 360, 100, 60);
           line(i, height/2 - sine.signal[i % bufferSize] * 100, i+1, height/2 - sine.signal[(i+1) % bufferSize] * 300);
@@ -96,7 +96,7 @@
         audioWriter(sine.signal);
       }
     </script>
-  
+
     <div><canvas id="signal" width="200px" height="200px"></canvas></div>
   </body>
 </html>
