@@ -2300,7 +2300,7 @@ Reverb.prototype.process = function (interleavedSamples){
   return outputSamples;
 };
 
-if (module && typeof module.exports !== 'undefined') {
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
   module.exports = {
     DSP: DSP,
     DFT: DFT,
