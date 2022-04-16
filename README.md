@@ -1,6 +1,8 @@
 # DSP.js
 
-DSP.js is a comprehensive digital signal processing library for javascript. 
+**NOTE: This project is no longer maintained (and hasnt been for years). I wrote this when I was much younger and experimenting in Audio and DSP. This is no longer much of a passion of mine.**
+
+DSP.js is a digital signal processing library for javascript. 
 It includes many functions for signal analysis and generation, including 
 Oscillators (sine, saw, square, triangle), Window functions (Hann, Hamming, etc), 
 Envelopes (ADSR), IIR Filters (lowpass, highpass, bandpass, notch), FFT and DFT 
