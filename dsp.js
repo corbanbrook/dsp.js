@@ -1310,7 +1310,7 @@ function IIRFilter2(type, cutoff, resonance, sampleRate) {
   this.resonance = resonance;
   this.sampleRate = sampleRate;
 
-  this.f = Float64Array(4);
+  this.f = new Float64Array(4);
   this.f[0] = 0.0; // lp
   this.f[1] = 0.0; // hp
   this.f[2] = 0.0; // bp
@@ -1776,7 +1776,7 @@ DSP.mag2db = function(buffer) {
   var log = Math.log;
   var max = Math.max;
  
-  var result = Float64Array(buffer.length);
+  var result = new Float64Array(buffer.length);
   for (var i=0; i<buffer.length; i++) {
     result[i] = 20.0*log(max(buffer[i], minMag));
   }
@@ -1803,13 +1803,13 @@ DSP.freqz = function(b, a, w) {
   var i, j;
 
   if (!w) {
-    w = Float64Array(200);
+    w = new Float64Array(200);
     for (i=0;i<w.length; i++) {
       w[i] = DSP.TWO_PI/w.length * i - Math.PI;
     }
   }
 
-  var result = Float64Array(w.length);
+  var result = new Float64Array(w.length);
  
   var sqrt = Math.sqrt;
   var cos = Math.cos;
@@ -1909,7 +1909,7 @@ function GraphicalEq(sampleRate) {
     }
        
     if (!this.w) {
-      this.w = Float64Array(400);
+      this.w = new Float64Array(400);
       for (var i=0; i<this.w.length; i++) {
          this.w[i] = Math.PI/this.w.length * i;
       }
