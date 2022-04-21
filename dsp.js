@@ -1310,7 +1310,7 @@ function IIRFilter2(type, cutoff, resonance, sampleRate) {
   this.resonance = resonance;
   this.sampleRate = sampleRate;
 
-  this.f = Float64Array(4);
+  this.f = new Float64Array(4);
   this.f[0] = 0.0; // lp
   this.f[1] = 0.0; // hp
   this.f[2] = 0.0; // bp
