@@ -53,17 +53,19 @@ var DSP = {
   TWO_PI:         2*Math.PI
 };
 
+
+var self = this;
 // Setup arrays for platforms which do not support byte arrays
 function setupTypedArray(name, fallback) {
   // check if TypedArray exists
   // typeof on Minefield and Chrome return function, typeof on Webkit returns object.
-  if (typeof this[name] !== "function" && typeof this[name] !== "object") {
+  if (typeof self[name] !== "function" && typeof self[name] !== "object") {
     // nope.. check if WebGLArray exists
-    if (typeof this[fallback] === "function" && typeof this[fallback] !== "object") {
-      this[name] = this[fallback];
+    if (typeof self[fallback] === "function" && typeof self[fallback] !== "object") {
+      self[name] = self[fallback];
     } else {
       // nope.. set as Native JS array
-      this[name] = function(obj) {
+      self[name] = function(obj) {
         if (obj instanceof Array) {
           return obj;
         } else if (typeof obj === "number") {
